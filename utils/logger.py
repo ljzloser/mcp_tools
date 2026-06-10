@@ -77,7 +77,7 @@ def setup_db_sink(db) -> None:
         _db_sink,
         level="INFO",
         format="{message}",
-        filter=lambda record: not record["name"].startswith("aiosqlite"),
+        filter=lambda record: not (record["name"] or "").startswith("aiosqlite"),
     )
 
 

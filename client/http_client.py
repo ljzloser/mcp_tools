@@ -81,6 +81,7 @@ class AsyncHttpClient(QObject):
 
     def _cleanup_loop(self) -> None:
         """清理事件循环资源"""
+        assert self._loop is not None
         # 取消所有待处理任务
         pending = asyncio.all_tasks(self._loop)
         for task in pending:

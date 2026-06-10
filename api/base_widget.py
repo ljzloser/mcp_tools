@@ -122,7 +122,7 @@ class BasePluginWidget(QObject):
         """
         if not hasattr(form, "get_values"):
             return
-        values = form.get_values()
+        values = form.get_values()  # type: ignore[union-attr]
         plugin_name = self.get_name()
         self._config_save_req = self.http.put(
             Routes.plugin_config(plugin_name),

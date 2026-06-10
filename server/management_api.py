@@ -14,6 +14,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from api.protocol import (
     LogClearResponse,
+    LogItem,
     LogListResponse,
     LogPruneResponse,
     LogRetentionConfig,
@@ -460,8 +461,8 @@ class ManagementAPI:
 
         @app.get(Routes.LOGS, response_model=LogListResponse)
         async def get_logs(plugin: str | None = None, limit: int = 200):
-            logs = await self.database.get_logs(plugin_name=plugin, limit=limit)
-            return LogListResponse(logs=logs)
+            rows = await self.database.get_logs(plugin_name=plugin, limit=limit)
+            return LogListResponse(logs=[LogItem(**r) for r in rows])
 
         @app.delete(Routes.LOGS, response_model=LogClearResponse)
         async def clear_logs(plugin: str | None = None):

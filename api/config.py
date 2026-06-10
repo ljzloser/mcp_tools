@@ -142,7 +142,7 @@ class StringField(ConfigField[str]):
 
         field = self
 
-        class _Widget(QWidget):
+        class _Widget(QWidget, ConfigWidgetBase):
             value_change = Signal(object)
 
             def __init__(self, parent=None):
@@ -189,7 +189,7 @@ class PasswordField(ConfigField[str]):
 
         field = self
 
-        class _Widget(QWidget):
+        class _Widget(QWidget, ConfigWidgetBase):
             value_change = Signal(object)
 
             def __init__(self, parent=None):
@@ -250,7 +250,7 @@ class IntField(ConfigField[int]):
 
         field = self
 
-        class _Widget(QWidget):
+        class _Widget(QWidget, ConfigWidgetBase):
             value_change = Signal(object)
 
             def __init__(self, parent=None):
@@ -317,7 +317,7 @@ class FloatField(ConfigField[float]):
 
         field = self
 
-        class _Widget(QWidget):
+        class _Widget(QWidget, ConfigWidgetBase):
             value_change = Signal(object)
 
             def __init__(self, parent=None):
@@ -369,7 +369,7 @@ class BoolField(ConfigField[bool]):
 
         field = self
 
-        class _Widget(QWidget):
+        class _Widget(QWidget, ConfigWidgetBase):
             value_change = Signal(object)
 
             def __init__(self, parent=None):
@@ -428,7 +428,7 @@ class ChoiceField(ConfigField[str]):
 
         field = self
 
-        class _Widget(QWidget):
+        class _Widget(QWidget, ConfigWidgetBase):
             value_change = Signal(object)
 
             def __init__(self, parent=None):
@@ -489,7 +489,7 @@ class PathField(ConfigField[str]):
 
         field = self
 
-        class _Widget(QWidget):
+        class _Widget(QWidget, ConfigWidgetBase):
             value_change = Signal(object)
 
             def __init__(self, parent=None):
@@ -667,11 +667,11 @@ class ConfigModel:
 
                     # 连接字段变化信号
                     if hasattr(widget, "value_change"):
-                        widget.value_change.connect(
+                        widget.value_change.connect(  # type: ignore[union-attr]
                             lambda v, n=name: self.config_changed.emit({n: v})
                         )
 
-                    layout.addWidget(widget)
+                    layout.addWidget(widget)  # type: ignore[arg-type]
 
                 layout.addStretch()
 

@@ -44,8 +44,8 @@ class HeaderField(ConfigField[dict[str, str]]):
 
     def create_widget(self, parent=None) -> ConfigWidgetBase:
         """重写 create_widget：多行 key:value 请求头编辑器"""
-                from PySide6.QtCore import Signal
-                from PySide6.QtWidgets import QVBoxLayout, QWidget
+        from PySide6.QtCore import Signal
+        from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
         from qfluentwidgets import BodyLabel, TextEdit
 
         field = self

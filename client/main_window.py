@@ -39,12 +39,13 @@ class LazyPage(QWidget):
         """创建并嵌入真实页面"""
         if self._initialized:
             return
-        self._real_page = self._create_fn(self._http, parent=self)
-        self._real_page.setObjectName(self._key)
+        page = self._create_fn(self._http, parent=self)
+        page.setObjectName(self._key)
+        self._real_page = page
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        layout.addWidget(self._real_page)
+        layout.addWidget(page)
         self._initialized = True
 
     def showEvent(self, event: QShowEvent) -> None:
@@ -176,6 +177,6 @@ class MainWindow(MSFluentWindow):
         """窗口关闭时清理资源"""
         for key, lazy in self._lazy_pages.items():
             if lazy.is_initialized and lazy.real_page and hasattr(lazy.real_page, '_refresh_timer'):
-                lazy.real_page._refresh_timer.stop()
+                lazy.real_page._refresh_timer.stop()  # type: ignore[union-attr]
         self.http.close()
         super().closeEvent(event)
