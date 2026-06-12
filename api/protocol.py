@@ -118,3 +118,30 @@ class LogPruneResponse(BaseModel):
 class LogClearResponse(BaseModel):
     ok: bool = True
     deleted: int = 0
+
+
+# ── 服务状态 ──
+
+
+class ServiceStatus(BaseModel):
+    """Windows 服务状态"""
+    installed: bool = False
+    running: bool = False
+    service_name: str = "MCPToolHub"
+    display_name: str = "MCP Tool Hub Service"
+
+
+# ── MCP 客户端配置 ──
+
+
+class McpClientConfig(BaseModel):
+    """MCP 客户端配置写入请求"""
+    client: str  # claude / cursor / vscode
+    remove: bool = False  # True = 移除配置
+
+
+class McpClientConfigResponse(BaseModel):
+    """MCP 客户端配置写入响应"""
+    ok: bool
+    message: str = ""
+    config_path: str = ""

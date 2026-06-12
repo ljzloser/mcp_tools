@@ -47,7 +47,7 @@ class Database:
             CREATE TABLE IF NOT EXISTS server_config (
                 key         TEXT PRIMARY KEY,
                 value       TEXT NOT NULL,
-                updated_at  TEXT DEFAULT (datetime('now', 'localtime'))
+                updated_at  TEXT DEFAULT (datetime('now'))
             );
 
             CREATE TABLE IF NOT EXISTS plugins (
@@ -58,8 +58,8 @@ class Database:
                 mcp_enabled   INTEGER DEFAULT 1,
                 config_json   TEXT DEFAULT '{}',
                 status        TEXT DEFAULT 'unloaded',
-                created_at    TEXT DEFAULT (datetime('now', 'localtime')),
-                updated_at    TEXT DEFAULT (datetime('now', 'localtime'))
+                created_at    TEXT DEFAULT (datetime('now')),
+                updated_at    TEXT DEFAULT (datetime('now'))
             );
 
             CREATE TABLE IF NOT EXISTS plugin_logs (
@@ -67,7 +67,7 @@ class Database:
                 plugin_name  TEXT NOT NULL,
                 level        TEXT NOT NULL,
                 message      TEXT NOT NULL,
-                created_at   TEXT DEFAULT (datetime('now', 'localtime'))
+                created_at   TEXT DEFAULT (datetime('now'))
             );
 
             CREATE INDEX IF NOT EXISTS idx_logs_plugin
@@ -104,7 +104,7 @@ class Database:
         assert self._conn is not None
         await self._conn.execute(
             """INSERT INTO server_config (key, value, updated_at)
-               VALUES (?, ?, datetime('now', 'localtime'))
+               VALUES (?, ?, datetime('now'))
                ON CONFLICT(key) DO UPDATE SET value=excluded.value,
                updated_at=excluded.updated_at""",
             (key, value),
@@ -154,7 +154,7 @@ class Database:
         """设置插件启用/禁用"""
         assert self._conn is not None
         await self._conn.execute(
-            "UPDATE plugins SET enabled=?, updated_at=datetime('now', 'localtime') WHERE name=?",
+            "UPDATE plugins SET enabled=?, updated_at=datetime('now') WHERE name=?",
             (int(enabled), name),
         )
         await self._conn.commit()
@@ -172,7 +172,7 @@ class Database:
         """更新插件状态"""
         assert self._conn is not None
         await self._conn.execute(
-            "UPDATE plugins SET status=?, updated_at=datetime('now', 'localtime') WHERE name=?",
+            "UPDATE plugins SET status=?, updated_at=datetime('now') WHERE name=?",
             (status, name),
         )
         await self._conn.commit()
@@ -199,7 +199,7 @@ class Database:
         """设置插件配置"""
         assert self._conn is not None
         await self._conn.execute(
-            """UPDATE plugins SET config_json=?, updated_at=datetime('now', 'localtime')
+            """UPDATE plugins SET config_json=?, updated_at=datetime('now')
                WHERE name=?""",
             (json.dumps(config, ensure_ascii=False), name),
         )
@@ -243,7 +243,7 @@ class Database:
         """设置插件 MCP 开关"""
         assert self._conn is not None
         await self._conn.execute(
-            "UPDATE plugins SET mcp_enabled=?, updated_at=datetime('now', 'localtime') WHERE name=?",
+            "UPDATE plugins SET mcp_enabled=?, updated_at=datetime('now') WHERE name=?",
             (int(enabled), name),
         )
         await self._conn.commit()
@@ -283,11 +283,11 @@ class Database:
     async def add_log(
         self, plugin_name: str, level: str, message: str
     ) -> None:
-        """添加日志记录"""
+        """添加日志记录（存储 UTC 时间，查询时转为本地时间）"""
         assert self._conn is not None
         await self._conn.execute(
             "INSERT INTO plugin_logs (plugin_name, level, message, created_at) "
-            "VALUES (?, ?, ?, datetime('now', 'localtime'))",
+            "VALUES (?, ?, ?, datetime('now'))",
             (plugin_name, level, message),
         )
         await self._conn.commit()
@@ -302,21 +302,46 @@ class Database:
             pass  # 列已存在，忽略
 
     async def get_logs(
-        self, plugin_name: str | None = None, limit: int = 200
+        self,
+        plugin_name: str | None = None,
+        limit: int = 200,
+        start_at: str | None = None,
+        end_at: str | None = None,
     ) -> list[dict[str, Any]]:
-        """查询日志"""
+        """查询日志（created_at 统一转为本地时间显示）"""
         assert self._conn is not None
+        # 存储统一为 UTC，查询返回本地时间
+        sql = (
+            "SELECT id, plugin_name, level, message, "
+            "strftime('%Y-%m-%d %H:%M:%S', created_at, 'localtime') AS created_at "
+            "FROM plugin_logs"
+        )
+        conditions: list[str] = []
+        params: list[Any] = []
+
         if plugin_name:
-            cursor = await self._conn.execute(
-                "SELECT * FROM plugin_logs WHERE plugin_name=? "
-                "ORDER BY created_at DESC LIMIT ?",
-                (plugin_name, limit),
+            conditions.append("plugin_name=?")
+            params.append(plugin_name)
+
+        if start_at:
+            conditions.append(
+                "strftime('%Y-%m-%d %H:%M:%S', created_at, 'localtime') >= ?"
             )
-        else:
-            cursor = await self._conn.execute(
-                "SELECT * FROM plugin_logs ORDER BY created_at DESC LIMIT ?",
-                (limit,),
+            params.append(start_at)
+
+        if end_at:
+            conditions.append(
+                "strftime('%Y-%m-%d %H:%M:%S', created_at, 'localtime') <= ?"
             )
+            params.append(end_at)
+
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+
+        sql += " ORDER BY id DESC LIMIT ?"
+        params.append(limit)
+
+        cursor = await self._conn.execute(sql, tuple(params))
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
 
@@ -357,7 +382,7 @@ class Database:
 
         if retention_days and retention_days > 0:
             cursor = await self._conn.execute(
-                "DELETE FROM plugin_logs WHERE created_at < datetime('now', 'localtime', ?)",
+                "DELETE FROM plugin_logs WHERE created_at < datetime('now', ?)",
                 (f"-{retention_days} days",),
             )
             total_deleted += cursor.rowcount

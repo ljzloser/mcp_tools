@@ -28,6 +28,11 @@ class Routes:
     LOGS_CONFIG = "/logs/config"
     LOGS_PRUNE = "/logs/prune"
 
+    # ── Windows 服务 ──
+    # Windows 服务相关接口已由客户端直接管理，已从 API 移除
+
+    # MCP 客户端配置接口已移除，前端直接管理本地配置文件
+
     # ── 便捷方法：生成实际路径 ──
 
     @classmethod

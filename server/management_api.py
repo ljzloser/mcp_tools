@@ -44,7 +44,7 @@ class ResponseGuardMiddleware:
 
     当异常在响应体序列化阶段发生时，ExceptionMiddleware 可能尝试发送
     新的 http.response.start，导致 ASGI 协议错误。此中间件拦截重复的
-    http.response.start，确保协议完整性。
+    http.response.start，并确保响应始终以 body 终止。
     """
 
     def __init__(self, app: ASGIApp) -> None:
@@ -56,14 +56,35 @@ class ResponseGuardMiddleware:
             return
 
         response_started = False
+        response_finished = False
+        # 当拦截了重复的 response.start 后，后续的 response.body 也需要吞掉，
+        # 因为 ASGI 此时处于等待 body 的状态，再发 start 会违反协议。
+        # 但如果第一个 start 已经发出，异常处理器试图发新的 start+body，
+        # 我们需要吞掉整个异常响应，并发一个空 body 来完成已开始的响应。
+        suppress_response = False
 
         async def _send(message: Message) -> None:
-            nonlocal response_started
+            nonlocal response_started, response_finished, suppress_response
+            if suppress_response:
+                # 吞掉异常响应的所有消息（start + body）
+                return
             if message["type"] == "http.response.start":
                 if response_started:
-                    logger.warning("拦截重复的 http.response.start，跳过")
+                    logger.warning("拦截重复的 http.response.start，发送空 body 终止响应")
+                    suppress_response = True
+                    # 第一个 response.start 已发出，必须发 body 才能完成响应
+                    if not response_finished:
+                        try:
+                            await send({"type": "http.response.body", "body": b"", "more_body": False})
+                        except Exception:
+                            pass
                     return
                 response_started = True
+            elif message["type"] == "http.response.body":
+                if not response_started:
+                    return
+                if message.get("more_body", False) is False:
+                    response_finished = True
             await send(message)
 
         try:
@@ -72,10 +93,11 @@ class ResponseGuardMiddleware:
             if not response_started:
                 raise
             # 响应头已发送但未完成，发送空 body 终止响应
-            try:
-                await send({"type": "http.response.body", "body": b"", "more_body": False})
-            except Exception:
-                pass
+            if not response_finished:
+                try:
+                    await send({"type": "http.response.body", "body": b"", "more_body": False})
+                except Exception:
+                    pass
 
 
 class ManagementAPI:
@@ -460,8 +482,18 @@ class ManagementAPI:
                 raise HTTPException(status_code=500, detail=str(e))
 
         @app.get(Routes.LOGS, response_model=LogListResponse)
-        async def get_logs(plugin: str | None = None, limit: int = 200):
-            rows = await self.database.get_logs(plugin_name=plugin, limit=limit)
+        async def get_logs(
+            plugin: str | None = None,
+            limit: int = 200,
+            start_at: str | None = None,
+            end_at: str | None = None,
+        ):
+            rows = await self.database.get_logs(
+                plugin_name=plugin,
+                limit=limit,
+                start_at=start_at,
+                end_at=end_at,
+            )
             return LogListResponse(logs=[LogItem(**r) for r in rows])
 
         @app.delete(Routes.LOGS, response_model=LogClearResponse)
