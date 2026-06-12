@@ -42,17 +42,46 @@ class LazyPage(QWidget):
         page = self._create_fn(self._http, parent=self)
         page.setObjectName(self._key)
         self._real_page = page
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        if self.layout() is None:
+            layout = QVBoxLayout(self)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(0)
+        else:
+            layout = self.layout()
         layout.addWidget(page)
         self._initialized = True
+
+    def _destroy_real_page(self) -> None:
+        """销毁当前页面，释放资源"""
+        if not self._real_page:
+            return
+        layout = self.layout()
+        if layout is not None:
+            while layout.count():
+                item = layout.takeAt(0)
+                if item is None:
+                    continue
+                widget = item.widget()
+                if widget is not None:
+                    widget.setParent(None)
+                    widget.deleteLater()
+                child_layout = item.layout()
+                if child_layout is not None:
+                    child_layout.deleteLater()
+        self._real_page = None
+        self._initialized = False
 
     def showEvent(self, event: QShowEvent) -> None:
         """首次显示时初始化"""
         if not self._initialized:
             self._do_initialize()
         super().showEvent(event)
+
+    def hideEvent(self, event: QShowEvent) -> None:
+        """切换到其他页面时销毁真实页面"""
+        if self._initialized:
+            self._destroy_real_page()
+        super().hideEvent(event)
 
     @property
     def real_page(self) -> QWidget | None:
@@ -90,6 +119,7 @@ class MainWindow(MSFluentWindow):
         # 初始化页面
         self._init_pages()
         self._init_navigation()
+        self.stackedWidget.currentChanged.connect(self._on_stack_current_changed)
 
     def _init_pages(self) -> None:
         """注册所有页面（懒加载，showEvent 时才真正创建）"""
@@ -100,11 +130,16 @@ class MainWindow(MSFluentWindow):
         from .pages.settings_page import SettingsPage
 
         page_defs = [
-            ("overview", OverviewPage, FluentIcon.HOME, "概览", NavigationItemPosition.TOP),
-            ("plugins", PluginListPage, FluentIcon.APPLICATION, "插件管理", NavigationItemPosition.TOP),
-            ("tools", ToolPage, FluentIcon.COMMAND_PROMPT, "工具", NavigationItemPosition.TOP),
-            ("logs", LogPage, FluentIcon.DOCUMENT, "日志", NavigationItemPosition.TOP),
-            ("settings", SettingsPage, FluentIcon.SETTING, "设置", NavigationItemPosition.BOTTOM),
+            ("overview", OverviewPage, FluentIcon.HOME,
+             "概览", NavigationItemPosition.TOP),
+            ("plugins", PluginListPage, FluentIcon.APPLICATION,
+             "插件管理", NavigationItemPosition.TOP),
+            ("tools", ToolPage, FluentIcon.COMMAND_PROMPT,
+             "工具", NavigationItemPosition.TOP),
+            ("logs", LogPage, FluentIcon.DOCUMENT,
+             "日志", NavigationItemPosition.TOP),
+            ("settings", SettingsPage, FluentIcon.SETTING,
+             "设置", NavigationItemPosition.BOTTOM),
         ]
 
         for key, page_class, icon, text, position in page_defs:
@@ -117,6 +152,15 @@ class MainWindow(MSFluentWindow):
         # 概览页作为默认页，立即初始化
         self._lazy_pages["overview"]._do_initialize()
         self.switchTo(self._lazy_pages["overview"])
+
+    def _on_stack_current_changed(self, index: int) -> None:
+        """销毁所有不再显示的懒加载页面。"""
+        for i in range(self.stackedWidget.count()):
+            if i == index:
+                continue
+            widget = self.stackedWidget.widget(i)
+            if isinstance(widget, LazyPage) and widget.is_initialized:
+                widget._destroy_real_page()
 
     @property
     def overview_page(self):
@@ -177,6 +221,7 @@ class MainWindow(MSFluentWindow):
         """窗口关闭时清理资源"""
         for key, lazy in self._lazy_pages.items():
             if lazy.is_initialized and lazy.real_page and hasattr(lazy.real_page, '_refresh_timer'):
-                lazy.real_page._refresh_timer.stop()  # type: ignore[union-attr]
+                # type: ignore[union-attr]
+                lazy.real_page._refresh_timer.stop()
         self.http.close()
         super().closeEvent(event)

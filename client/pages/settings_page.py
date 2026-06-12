@@ -1,12 +1,15 @@
 """MCP Tool Hub — 设置页
 
-全局配置表单（管理端口、日志级别等）。
+全局配置表单（管理端口、日志级别等）+ Windows 服务管理 + MCP 客户端一键配置。
 """
 
 from __future__ import annotations
 
 import json
+import sys
+from pathlib import Path
 
+from loguru import logger
 from qfluentwidgets import (
     BodyLabel,
     SubtitleLabel,
@@ -25,8 +28,9 @@ from qfluentwidgets import (
     IconWidget,
     TextEdit,
     ToolButton,
+    HyperlinkButton,
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QClipboard
 from PySide6.QtWidgets import (
     QWidget,
@@ -35,12 +39,14 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QScrollArea,
     QApplication,
+    QGridLayout,
 )
 
 from api.protocol import LogPruneResponse, LogRetentionConfig, SimpleResponse
 from api.routes import Routes
 
 from ..http_client import AsyncHttpClient
+from ..service_manager import ServiceManager, SERVICE_RUNNING, SERVICE_STOPPED, SERVICE_NOT_INSTALLED, SERVICE_UNKNOWN
 
 
 class SettingsPage(QWidget):
@@ -50,10 +56,46 @@ class SettingsPage(QWidget):
         super().__init__(parent)
         self.http = http
         self.setObjectName("settings")
+
+        # 服务管理器
+        self.service_mgr = ServiceManager(parent=self)
+        self._setup_service_paths()
+        self.service_mgr.status_changed.connect(
+            self._on_service_status_changed)
+        self.service_mgr.action_finished.connect(
+            self._on_service_action_finished)
+
         self._setup_ui()
         self._connect_signals()
         self.http.request_finished.connect(self._on_http_response)
         self._on_load_log_config()
+
+        # 延迟刷新服务状态
+        QTimer.singleShot(500, self.service_mgr.refresh_status)
+
+        # 立即填充 MCP JSON 预览
+        try:
+            self.mcp_config_text.setPlainText(self._generate_mcp_config())
+        except Exception:
+            pass
+
+    def _setup_service_paths(self) -> None:
+        """设置 NSSM 和 server 路径"""
+        if getattr(sys, "frozen", False):
+            app_dir = Path(sys.executable).parent
+            self.service_mgr.setup_paths(
+                nssm_path=str(app_dir / "nssm.exe"),
+                server_path=str(app_dir / "mcp-server.exe"),
+            )
+        else:
+            # 开发模式：尝试从项目目录查找
+            project_root = Path(__file__).resolve().parent.parent.parent
+            nssm_path = project_root / "dist" / "mcp-tool-hub" / "nssm.exe"
+            server_path = project_root / "dist" / "mcp-tool-hub" / "mcp-server.exe"
+            self.service_mgr.setup_paths(
+                nssm_path=str(nssm_path),
+                server_path=str(server_path),
+            )
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -104,11 +146,17 @@ class SettingsPage(QWidget):
         self.input_host.setClearButtonEnabled(True)
         form.addRow("绑定地址：", self.input_host)
 
-        self.input_port = LineEdit()
-        self.input_port.setText("9020")
-        self.input_port.setPlaceholderText("管理 API 端口")
-        self.input_port.setClearButtonEnabled(True)
-        form.addRow("端口：", self.input_port)
+        self.input_api_port = LineEdit()
+        self.input_api_port.setText("9020")
+        self.input_api_port.setPlaceholderText("管理 API 端口")
+        self.input_api_port.setClearButtonEnabled(True)
+        form.addRow("服务端口：", self.input_api_port)
+
+        self.input_mcp_port = LineEdit()
+        self.input_mcp_port.setText("9021")
+        self.input_mcp_port.setPlaceholderText("MCP SSE 端口")
+        self.input_mcp_port.setClearButtonEnabled(True)
+        form.addRow("MCP 端口：", self.input_mcp_port)
 
         self.combo_log_level = ComboBox()
         self.combo_log_level.addItems(["DEBUG", "INFO", "WARNING", "ERROR"])
@@ -129,7 +177,52 @@ class SettingsPage(QWidget):
         server_layout.addLayout(form)
         inner.addWidget(server_card)
 
-        # ── MCP 客户端配置卡片 ──
+        # ── Windows 服务管理卡片 ──
+        svc_card = SimpleCardWidget()
+        svc_layout = QVBoxLayout(svc_card)
+        svc_layout.setContentsMargins(24, 20, 24, 20)
+        svc_layout.setSpacing(16)
+
+        svc_header = QHBoxLayout()
+        svc_icon = IconWidget(FluentIcon.CLOUD, svc_card)
+        svc_icon.setFixedSize(20, 20)
+        svc_header.addWidget(svc_icon)
+        svc_header.addWidget(StrongBodyLabel("Windows 服务管理"))
+        svc_header.addStretch()
+        svc_layout.addLayout(svc_header)
+
+        sep_svc = QWidget()
+        sep_svc.setFixedHeight(1)
+        sep_svc.setStyleSheet("background: #e0e0e0;")
+        svc_layout.addWidget(sep_svc)
+
+        # 状态行
+        status_row = QHBoxLayout()
+        status_row.addWidget(BodyLabel("服务状态："))
+        self.lbl_service_status = BodyLabel("检测中...")
+        self.lbl_service_status.setStyleSheet("font-weight: bold;")
+        status_row.addWidget(self.lbl_service_status)
+        status_row.addStretch()
+        svc_layout.addLayout(status_row)
+
+        # 服务按钮行（与外部 ServiceManager 连接）
+        svc_btn_row = QHBoxLayout()
+        self.btn_svc_install = PrimaryPushButton(FluentIcon.SAVE, "安装服务")
+        self.btn_svc_uninstall = PushButton(FluentIcon.CANCEL, "卸载服务")
+        self.btn_svc_start = PushButton(FluentIcon.PLAY, "启动")
+        self.btn_svc_stop = PushButton(FluentIcon.PAUSE, "停止")
+        self.btn_svc_refresh = PushButton(FluentIcon.SYNC, "刷新")
+
+        svc_btn_row.addWidget(self.btn_svc_install)
+        svc_btn_row.addWidget(self.btn_svc_uninstall)
+        svc_btn_row.addWidget(self.btn_svc_start)
+        svc_btn_row.addWidget(self.btn_svc_stop)
+        svc_btn_row.addWidget(self.btn_svc_refresh)
+        svc_layout.addLayout(svc_btn_row)
+
+        inner.addWidget(svc_card)
+
+        # ── MCP 客户端一键配置卡片 ──
         mcp_card = SimpleCardWidget()
         mcp_layout = QVBoxLayout(mcp_card)
         mcp_layout.setContentsMargins(24, 20, 24, 20)
@@ -148,15 +241,28 @@ class SettingsPage(QWidget):
         sep_mcp.setStyleSheet("background: #e0e0e0;")
         mcp_layout.addWidget(sep_mcp)
 
-        mcp_hint = CaptionLabel("将以下 JSON 配置复制到 AI 客户端的 MCP 服务器设置中：")
+        mcp_hint = CaptionLabel("以下 JSON 可用于 MCP 客户端，支持复制到剪贴板：")
         mcp_layout.addWidget(mcp_hint)
+
+        from ..theme import is_dark_theme
 
         self.mcp_config_text = TextEdit()
         self.mcp_config_text.setReadOnly(True)
-        self.mcp_config_text.setFixedHeight(120)
+        self.mcp_config_text.setFixedHeight(140)
+        # 使用透明背景并根据主题调整前景/边框色，避免在暗色主题下出现白色块
+        if is_dark_theme():
+            fg = "#e6e6e6"
+            border = "#444444"
+            bg = "transparent"
+        else:
+            fg = "#111111"
+            border = "#e0e0e0"
+            bg = "transparent"
+
         self.mcp_config_text.setStyleSheet(
-            "TextEdit { font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 13px; "
-            "background: #fafafa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px; }"
+            f"TextEdit {{ font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 13px; "
+            f"background-color: {bg}; color: {fg}; border: 1px solid {border}; border-radius: 6px; padding: 8px; "
+            f"selection-color: #ffffff; selection-background-color: #5a5a5a; }}"
         )
         mcp_layout.addWidget(self.mcp_config_text)
 
@@ -168,11 +274,11 @@ class SettingsPage(QWidget):
 
         inner.addWidget(mcp_card)
 
-        # ── 日志清理配置卡片 ──
+        # 日志清理卡片（初始化）
         log_card = SimpleCardWidget()
         log_layout = QVBoxLayout(log_card)
         log_layout.setContentsMargins(24, 20, 24, 20)
-        log_layout.setSpacing(16)
+        log_layout.setSpacing(12)
 
         log_header = QHBoxLayout()
         log_icon = IconWidget(FluentIcon.DELETE, log_card)
@@ -244,22 +350,29 @@ class SettingsPage(QWidget):
 
         about_layout.addWidget(BodyLabel("MCP Tool Hub v0.1.0"))
         about_layout.addWidget(CaptionLabel("集成式 MCP 工具管理平台"))
-        about_layout.addWidget(CaptionLabel("基于 MCP SDK + FastAPI + PySide6-Fluent-Widgets"))
+        about_layout.addWidget(CaptionLabel(
+            "基于 MCP SDK + FastAPI + PySide6-Fluent-Widgets"))
         inner.addWidget(about_card)
-
-        # ── 保存按钮 ──
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch()
-        self.btn_save = PrimaryPushButton(FluentIcon.SAVE, "保存设置")
-        self.btn_reset = PushButton(FluentIcon.CANCEL, "重置")
-        btn_layout.addWidget(self.btn_reset)
-        btn_layout.addWidget(self.btn_save)
-        inner.addLayout(btn_layout)
 
         inner.addStretch()
 
         scroll.setWidget(content)
         layout.addWidget(scroll, 1)
+
+        sep_btn = QWidget()
+        sep_btn.setFixedHeight(1)
+        sep_btn.setStyleSheet("background: #e0e0e0;")
+        layout.addWidget(sep_btn)
+
+        btn_layout = QHBoxLayout()
+        btn_layout.setContentsMargins(36, 16, 36, 16)
+        btn_layout.setSpacing(12)
+        btn_layout.addStretch()
+        self.btn_save = PrimaryPushButton(FluentIcon.SAVE, "保存设置")
+        self.btn_reset = PushButton(FluentIcon.CANCEL, "重置")
+        btn_layout.addWidget(self.btn_reset)
+        btn_layout.addWidget(self.btn_save)
+        layout.addLayout(btn_layout)
 
     def _connect_signals(self) -> None:
         self.btn_save.clicked.connect(self._on_save)
@@ -267,6 +380,13 @@ class SettingsPage(QWidget):
         self.btn_prune_now.clicked.connect(self._on_prune_now)
         self.btn_load_log_config.clicked.connect(self._on_load_log_config)
         self.btn_copy_mcp.clicked.connect(self._on_copy_mcp_config)
+
+        # 服务管理
+        self.btn_svc_install.clicked.connect(self.service_mgr.install)
+        self.btn_svc_uninstall.clicked.connect(self.service_mgr.uninstall)
+        self.btn_svc_start.clicked.connect(self.service_mgr.start)
+        self.btn_svc_stop.clicked.connect(self.service_mgr.stop)
+        self.btn_svc_refresh.clicked.connect(self.service_mgr.refresh_status)
 
     def _on_save(self) -> None:
         """保存设置"""
@@ -288,7 +408,8 @@ class SettingsPage(QWidget):
     def _on_reset(self) -> None:
         """重置为默认"""
         self.input_host.setText("127.0.0.1")
-        self.input_port.setText("9020")
+        self.input_api_port.setText("9020")
+        self.input_mcp_port.setText("9021")
         self.combo_log_level.setCurrentText("INFO")
         self.switch_auto_start.setChecked(True)
         self.spin_retention_days.setValue(30)
@@ -302,15 +423,16 @@ class SettingsPage(QWidget):
     def _on_load_log_config(self) -> None:
         """从后端刷新日志清理配置"""
         self._log_config_req = self.http.get(Routes.LOGS_CONFIG)
+        # 不再自动写入或检查外部客户端配置，仅保留 JSON 预览
 
     def _generate_mcp_config(self) -> str:
         """生成 MCP 客户端配置 JSON"""
         host = self.input_host.text().strip() or "127.0.0.1"
-        port = self.input_port.text().strip() or "9020"
+        mcp_port = self.input_mcp_port.text().strip() or "9021"
         config = {
             "mcpServers": {
                 "mcp-tool-hub": {
-                    "url": f"http://{host}:{port}/sse"
+                    "url": f"http://{host}:{mcp_port}/sse"
                 }
             }
         }
@@ -356,3 +478,55 @@ class SettingsPage(QWidget):
             )
             # 清理后刷新配置（含总条数）
             self._on_load_log_config()
+
+    # ── 服务管理回调 ──
+
+    def _on_service_status_changed(self, status: str) -> None:
+        """服务状态变化，更新 UI"""
+        status_map = {
+            SERVICE_RUNNING: ("● 运行中", "#107c10"),
+            SERVICE_STOPPED: ("● 已停止", "#d83b01"),
+            SERVICE_NOT_INSTALLED: ("○ 未安装", "#666666"),
+            SERVICE_UNKNOWN: ("● 未知", "#888888"),
+        }
+        text, color = status_map.get(status, ("● 未知", "#888888"))
+        self.lbl_service_status.setText(text)
+        self.lbl_service_status.setStyleSheet(
+            f"font-weight: bold; color: {color};")
+
+        # 根据状态启用/禁用按钮
+        is_installed = status in (SERVICE_RUNNING, SERVICE_STOPPED)
+        is_running = status == SERVICE_RUNNING
+        is_stopped = status == SERVICE_STOPPED
+
+        self.btn_svc_install.setEnabled(not is_installed)
+        self.btn_svc_uninstall.setEnabled(is_installed)
+        self.btn_svc_start.setEnabled(is_stopped)
+        self.btn_svc_stop.setEnabled(is_running)
+
+    def _on_service_action_finished(self, action: str, success: bool, message: str) -> None:
+        """服务操作完成"""
+        action_names = {
+            "install": "安装",
+            "uninstall": "卸载",
+            "start": "启动",
+            "stop": "停止",
+        }
+        name = action_names.get(action, action)
+        if success:
+            InfoBar.success(
+                title=f"服务{name}",
+                content=message,
+                parent=self,
+                position=InfoBarPosition.TOP,
+                duration=3000,
+            )
+        else:
+            InfoBar.error(
+                title=f"服务{name}失败",
+                content=message,
+                parent=self,
+                position=InfoBarPosition.TOP,
+                duration=5000,
+            )
+    # 不再支持写入/移除外部客户端配置，相关回调已移除
