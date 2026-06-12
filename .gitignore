@@ -31,3 +31,6 @@ Desktop.ini
 
 # CodeBuddy
 .codebuddy/
+
+# 服务安装文件
+nssm.exe
