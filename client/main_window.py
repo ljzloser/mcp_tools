@@ -119,7 +119,8 @@ class MainWindow(MSFluentWindow):
         # 初始化页面
         self._init_pages()
         self._init_navigation()
-        self.stackedWidget.currentChanged.connect(self._on_stack_current_changed)
+        self.stackedWidget.currentChanged.connect(
+            self._on_stack_current_changed)
 
     def _init_pages(self) -> None:
         """注册所有页面（懒加载，showEvent 时才真正创建）"""

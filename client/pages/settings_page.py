@@ -56,6 +56,7 @@ class SettingsPage(QWidget):
         super().__init__(parent)
         self.http = http
         self.setObjectName("settings")
+        self.is_windows = sys.platform == "win32"
 
         # 服务管理器
         self.service_mgr = ServiceManager(parent=self)
@@ -70,8 +71,11 @@ class SettingsPage(QWidget):
         self.http.request_finished.connect(self._on_http_response)
         self._on_load_log_config()
 
-        # 延迟刷新服务状态
-        QTimer.singleShot(500, self.service_mgr.refresh_status)
+        if self.is_windows:
+            # 延迟刷新服务状态
+            QTimer.singleShot(500, self.service_mgr.refresh_status)
+        else:
+            self._on_service_status_changed(SERVICE_UNKNOWN)
 
         # 立即填充 MCP JSON 预览
         try:
@@ -81,6 +85,10 @@ class SettingsPage(QWidget):
 
     def _setup_service_paths(self) -> None:
         """设置 NSSM 和 server 路径"""
+        if not self.is_windows:
+            self.service_mgr.setup_paths(nssm_path="", server_path="")
+            return
+
         if getattr(sys, "frozen", False):
             app_dir = Path(sys.executable).parent
             self.service_mgr.setup_paths(
@@ -187,7 +195,7 @@ class SettingsPage(QWidget):
         svc_icon = IconWidget(FluentIcon.CLOUD, svc_card)
         svc_icon.setFixedSize(20, 20)
         svc_header.addWidget(svc_icon)
-        svc_header.addWidget(StrongBodyLabel("Windows 服务管理"))
+        svc_header.addWidget(StrongBodyLabel("服务管理"))
         svc_header.addStretch()
         svc_layout.addLayout(svc_header)
 
@@ -219,6 +227,16 @@ class SettingsPage(QWidget):
         svc_btn_row.addWidget(self.btn_svc_stop)
         svc_btn_row.addWidget(self.btn_svc_refresh)
         svc_layout.addLayout(svc_btn_row)
+
+        if not self.service_mgr.is_supported:
+            self.btn_svc_install.setEnabled(False)
+            self.btn_svc_uninstall.setEnabled(False)
+            self.btn_svc_start.setEnabled(False)
+            self.btn_svc_stop.setEnabled(False)
+            self.btn_svc_refresh.setEnabled(False)
+            self.lbl_service_status.setText("当前平台不支持服务管理")
+            self.lbl_service_status.setStyleSheet(
+                "font-weight: bold; color: #888888;")
 
         inner.addWidget(svc_card)
 

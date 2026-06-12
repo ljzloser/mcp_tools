@@ -192,8 +192,10 @@ class LogPage(QWidget):
         if plugin:
             params["plugin"] = plugin
 
-        params["start_at"] = self.start_datetime.dateTime().toString("yyyy-MM-dd HH:mm:ss")
-        params["end_at"] = self.end_datetime.dateTime().toString("yyyy-MM-dd HH:mm:ss")
+        params["start_at"] = self.start_datetime.dateTime().toString(
+            "yyyy-MM-dd HH:mm:ss")
+        params["end_at"] = self.end_datetime.dateTime().toString(
+            "yyyy-MM-dd HH:mm:ss")
 
         self._logs_req = self.http.get(Routes.LOGS, params=params)
 
@@ -219,7 +221,8 @@ class LogPage(QWidget):
             if level and log.level != level:
                 continue
             if keyword:
-                text = f"{log.created_at} {log.plugin_name} {log.level} {log.message}".lower()
+                text = f"{log.created_at} {log.plugin_name} {log.level} {log.message}".lower(
+                )
                 if keyword not in text:
                     continue
             filtered.append(log)
@@ -243,8 +246,10 @@ class LogPage(QWidget):
             self._apply_filters()
 
             # 更新插件筛选下拉
-            plugins = sorted({l.plugin_name for l in resp.logs if l.plugin_name})
-            existing = {self.combo_plugin.itemData(i) for i in range(self.combo_plugin.count())}
+            plugins = sorted(
+                {l.plugin_name for l in resp.logs if l.plugin_name})
+            existing = {self.combo_plugin.itemData(
+                i) for i in range(self.combo_plugin.count())}
             for p in plugins:
                 if p not in existing:
                     self.combo_plugin.addItem(p, userData=p)

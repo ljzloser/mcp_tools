@@ -144,7 +144,8 @@ class ManagementAPI:
         # 全局异常处理
         @self.app.exception_handler(Exception)
         async def global_exception_handler(request: Request, exc: Exception):
-            logger.error(f"API 未处理异常 [{request.method} {request.url}]: {exc}", exc_info=True)
+            logger.error(
+                f"API 未处理异常 [{request.method} {request.url}]: {exc}", exc_info=True)
             return JSONResponse(
                 status_code=500,
                 content={"detail": f"内部服务器错误: {str(exc)}"},
@@ -241,7 +242,8 @@ class ManagementAPI:
 
                 if plugin:
                     tool_count = len(self.registry.get_plugin_tools(name))
-                    has_widget = self.plugin_manager.get_widget(name) is not None
+                    has_widget = self.plugin_manager.get_widget(
+                        name) is not None
                     has_config = plugin.config_class is not None
                     result.append(
                         PluginSummary(
@@ -282,7 +284,8 @@ class ManagementAPI:
 
             # 获取数据库信息
             db_plugin = await self.database.get_plugin(name)
-            enabled = bool(db_plugin.get("enabled", True)) if db_plugin else True
+            enabled = bool(db_plugin.get("enabled", True)
+                           ) if db_plugin else True
 
             if plugin is not None:
                 # 插件已加载，返回完整信息
@@ -298,7 +301,8 @@ class ManagementAPI:
                     status=status.value,
                     enabled=enabled,
                     tools=[
-                        PluginToolItem(name=t.name, description=t.description, input_schema=t.input_schema)
+                        PluginToolItem(
+                            name=t.name, description=t.description, input_schema=t.input_schema)
                         for t in tools
                     ],
                     config=config,
@@ -309,11 +313,14 @@ class ManagementAPI:
             else:
                 # 插件未加载，返回基础信息
                 if name not in self.plugin_manager.list_discovered():
-                    raise HTTPException(status_code=404, detail=f"插件 [{name}] 未找到")
+                    raise HTTPException(
+                        status_code=404, detail=f"插件 [{name}] 未找到")
 
-                display = db_plugin.get("display_name", name) if db_plugin else name
+                display = db_plugin.get(
+                    "display_name", name) if db_plugin else name
                 version = db_plugin.get("version", "?") if db_plugin else "?"
-                mcp_enabled = bool(db_plugin.get("mcp_enabled", True)) if db_plugin else True
+                mcp_enabled = bool(db_plugin.get(
+                    "mcp_enabled", True)) if db_plugin else True
                 return PluginDetail(
                     name=name,
                     display_name=display,
@@ -393,7 +400,8 @@ class ManagementAPI:
                     # 安全处理 default：确保 JSON 可序列化
                     try:
                         import json
-                        safe_default = json.loads(json.dumps(field.default, default=str))
+                        safe_default = json.loads(
+                            json.dumps(field.default, default=str))
                     except (TypeError, ValueError):
                         safe_default = str(field.default)
                     schema[field_name] = {
@@ -404,8 +412,10 @@ class ManagementAPI:
                         "visible": field.visible,
                     }
                     # ChoiceField 额外信息
-                    if hasattr(field, "choices") and field.choices:  # type: ignore[attr-defined]
-                        schema[field_name]["choices"] = field.choices  # type: ignore[attr-defined]
+                    # type: ignore[attr-defined]
+                    if hasattr(field, "choices") and field.choices:
+                        # type: ignore[attr-defined]
+                        schema[field_name]["choices"] = field.choices
 
             return PluginConfigResponse(name=name, config=config, schema_info=schema)
 
