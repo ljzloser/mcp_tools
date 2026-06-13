@@ -25,6 +25,7 @@ dependencies = [
     "pyzbar>=0.1.9",
     "jmespath>=1.0.1",
     "pytesseract>=0.3.10",
+    "pymodbus>=3.7.0",
 ]
 
 [project.optional-dependencies]
