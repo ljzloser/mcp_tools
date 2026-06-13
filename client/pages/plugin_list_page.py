@@ -21,7 +21,7 @@ from qfluentwidgets import (
     InfoBarPosition,
     ToolButton,
 )
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
     QWidget,
@@ -513,20 +513,12 @@ class PluginListPage(QWidget):
         self._setup_ui()
         self._connect_signals()
 
-        # 定时刷新
-        self._refresh_timer = QTimer(self)
-        self._refresh_timer.setInterval(15000)
-        self._refresh_timer.timeout.connect(self.refresh)
-
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
-        if not self._refresh_timer.isActive():
-            self._refresh_timer.start()
         self.refresh()
 
     def hideEvent(self, event: QShowEvent) -> None:
         super().hideEvent(event)
-        self._refresh_timer.stop()
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
