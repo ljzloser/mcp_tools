@@ -45,7 +45,8 @@ class MCPServerApp:
         sse_port: int = 9021,
     ) -> None:
         self.name = name
-        self.plugins_dir = Path(plugins_dir) if plugins_dir else paths.plugins_dir
+        self.plugins_dir = Path(
+            plugins_dir) if plugins_dir else paths.plugins_dir
         self.db_path = Path(db_path) if db_path else paths.db_path
         self.transport = transport
         self.sse_host = sse_host
@@ -192,9 +193,99 @@ class MCPServerApp:
 
             # 4. 手动注入到 FastMCP 的工具管理器
             self.mcp._tool_manager._tools[tool_name] = mcp_tool
-            logger.debug(f"注册工具 [{tool_name}] 成功，schema: {list(input_schema.get('properties', {}).keys())}")
+            logger.debug(
+                f"注册工具 [{tool_name}] 成功，schema: {list(input_schema.get('properties', {}).keys())}")
         except Exception as e:
             logger.error(f"注册工具 [{tool_name}] 到 FastMCP 失败: {e}")
+
+    @staticmethod
+    async def _make_error_result(msg: str) -> MCPToolResult:
+        """创建错误结果（供内置工具使用）"""
+        return MCPToolResult(
+            content=[{"type": "text", "text": f"[ERROR] {msg}"}],
+            is_error=True,
+        )
+
+    def _register_builtin_tools(self) -> None:
+        """注册服务内置工具（非插件，直接注册到 FastMCP）"""
+        import json
+
+        from pydantic import BaseModel, Field
+
+        from mcp.server.fastmcp.tools import Tool
+        from mcp.server.fastmcp.utilities.func_metadata import ArgModelBase, FuncMetadata
+
+        class BatchCallItem(BaseModel):
+            """单次工具调用"""
+            tool: str = Field(description="工具名称")
+            args: dict = Field(default={}, description="工具参数")
+
+        class BatchExecuteArgs(BaseModel):
+            """批量执行工具参数"""
+            calls: list[BatchCallItem] = Field(
+                description="批量工具调用列表，按顺序执行，结果按相同顺序返回。"
+                '格式: [{"tool": "工具名", "args": {参数dict}}, ...]'
+            )
+
+        async def batch_execute(calls: list[dict]) -> str:
+            """批量执行多个工具调用，按传入顺序返回结果"""
+            if not calls:
+                return "[ERROR] calls 不能为空"
+
+            # 并发执行所有工具调用，保留顺序
+            async def _call_one(item: dict) -> dict:
+                tool_name = item.get("tool", "")
+                args = item.get("args") or {}
+                if not tool_name:
+                    return {"tool": tool_name, "error": "缺少 tool 字段"}
+                if not isinstance(args, dict):
+                    return {"tool": tool_name, "error": f"args 必须是 dict，收到: {type(args).__name__}"}
+                try:
+                    result = await self.router.call_tool(tool_name, args)
+                    texts = []
+                    for c in result.content:
+                        if c.get("type") == "text":
+                            texts.append(c.get("text", ""))
+                    if result.is_error:
+                        return {"tool": tool_name, "error": "; ".join(texts)}
+                    return {"tool": tool_name, "result": "; ".join(texts) if len(texts) > 1 else texts[0] if texts else ""}
+                except Exception as e:
+                    return {"tool": tool_name, "error": str(e)}
+
+            tasks = [asyncio.create_task(_call_one(item)) for item in calls]
+            results = await asyncio.gather(*tasks)
+            return json.dumps(list(results), ensure_ascii=False, indent=2)
+
+        # 注册到 FastMCP
+        try:
+            mcp_tool = Tool.from_function(
+                batch_execute,
+                name="batch_execute",
+                description="批量执行多个工具调用。传入列表格式 "
+                '[{"tool": "工具名", "args": {参数dict}}, ...]，'
+                "所有工具并发执行，结果按传入顺序返回。",
+            )
+
+            # 创建 ArgModel
+            ArgModel = type(
+                "batch_executeArguments",
+                (ArgModelBase,),
+                {
+                    "__annotations__": {
+                        "calls": list[dict],
+                    },
+                    "calls": Field(
+                        description='批量工具调用列表，格式: [{"tool": "工具名", "args": {参数dict}}, ...]'
+                    ),
+                },
+            )
+
+            mcp_tool.parameters = BatchExecuteArgs.model_json_schema()
+            mcp_tool.fn_metadata = FuncMetadata(arg_model=ArgModel)
+            self.mcp._tool_manager._tools["batch_execute"] = mcp_tool
+            logger.info("内置工具 [batch_execute] 注册成功")
+        except Exception as e:
+            logger.error(f"注册内置工具 [batch_execute] 失败: {e}")
 
     async def start(self) -> None:
         """启动服务：初始化数据库 → 加载插件 → 启动管理 API → 启动 MCP"""
@@ -244,6 +335,9 @@ class MCPServerApp:
         # 4. 向 FastMCP 动态注册工具
         await self._register_dynamic_tools()
 
+        # 4.1 注册服务内置工具
+        self._register_builtin_tools()
+
         # 4.5 从 DB 恢复 MCP 禁用状态
         await self._load_mcp_disabled()
 
@@ -252,7 +346,8 @@ class MCPServerApp:
         logger.info(f"管理 API 已启动: http://127.0.0.1:{self.management_api.port}")
 
         self._running = True
-        logger.info(f"MCP Tool Hub [{self.name}] 启动完成，共加载 {len(self.plugin_manager._plugins)} 个插件")
+        logger.info(
+            f"MCP Tool Hub [{self.name}] 启动完成，共加载 {len(self.plugin_manager._plugins)} 个插件")
 
         # 6. 启动 MCP 传输（阻塞）
         if self.transport == "sse":
@@ -327,7 +422,8 @@ class MCPServerApp:
             max_records=max_records,
         )
         if deleted > 0:
-            logger.info(f"自动清理过期日志: 删除 {deleted} 条 (保留 {retention_days} 天 / 最多 {max_records} 条)")
+            logger.info(
+                f"自动清理过期日志: 删除 {deleted} 条 (保留 {retention_days} 天 / 最多 {max_records} 条)")
 
     @property
     def is_running(self) -> bool:

@@ -23,6 +23,7 @@ dependencies = [
     "qrcode>=8.2",
     "python-barcode[images]>=0.16.1",
     "pyzbar>=0.1.9",
+    "jmespath>=1.0.1",
 ]
 
 [project.optional-dependencies]
