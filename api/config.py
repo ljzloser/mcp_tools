@@ -511,7 +511,7 @@ class PathField(ConfigField[str]):
                 layout.addWidget(self._edit, 1)
 
                 btn = PushButton(FluentIcon.FOLDER, "浏览")
-                btn.setFixedWidth(60)
+                btn.setMinimumWidth(80)
                 btn.clicked.connect(self._browse)
                 layout.addWidget(btn)
 

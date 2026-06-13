@@ -24,6 +24,7 @@ dependencies = [
     "python-barcode[images]>=0.16.1",
     "pyzbar>=0.1.9",
     "jmespath>=1.0.1",
+    "pytesseract>=0.3.10",
 ]
 
 [project.optional-dependencies]

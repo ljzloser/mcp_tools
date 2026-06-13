@@ -283,7 +283,8 @@ class JsonToolWidget(BasePluginWidget):
         else:
             self._result.setPlainText(text)
             InfoBar.success(
-                title="执行成功", position=InfoBarPosition.TOP, duration=2000)
+                title="执行成功", content="",
+                position=InfoBarPosition.TOP, duration=2000)
 
     def on_invoke_error(self, invoke_id: int, error: str) -> None:
         if invoke_id != getattr(self, "_current_invoke", -1):
