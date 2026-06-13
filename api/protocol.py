@@ -53,6 +53,7 @@ class PluginToolItem(BaseModel):
 class PluginDetail(PluginSummary):
     tools: list[PluginToolItem] = []
     config: dict[str, Any] = {}
+    readme: str = ""
 
 
 class McpToggleRequest(BaseModel):

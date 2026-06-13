@@ -157,10 +157,24 @@ class MCPServerApp:
                 "string": str, "number": float, "integer": int,
                 "boolean": bool, "object": dict, "array": list,
             }
+
+            def _resolve_type(prop: dict) -> type:
+                """从 JSON Schema 属性推断 Python 类型，支持 anyOf/oneOf"""
+                t = prop.get("type")
+                if t:
+                    return type_map.get(t, str)
+                for key in ("anyOf", "oneOf"):
+                    variants = prop.get(key, [])
+                    for v in variants:
+                        vt = v.get("type")
+                        if vt and vt != "null":
+                            return type_map.get(vt, str)
+                return str
+
             required = set(input_schema.get("required", []))
             fields: dict = {}
             for pname, prop in input_schema.get("properties", {}).items():
-                py_type = type_map.get(prop.get("type", "string"), str)
+                py_type = _resolve_type(prop)
                 if pname in required:
                     fields[pname] = (py_type, ...)
                 else:
@@ -259,7 +273,7 @@ class MCPServerApp:
 
         try:
             await self.management_api.stop()
-        except (Exception, asyncio.CancelledError) as e:
+        except (Exception, asyncio.CancelledError, KeyboardInterrupt) as e:
             logger.error(f"停止管理 API 异常: {e}")
 
         # 更新 DB 中所有插件状态
@@ -268,19 +282,19 @@ class MCPServerApp:
                 await self.database.update_plugin_status(
                     plugin.meta.name, PluginStatus.UNLOADED.value
                 )
-            except (Exception, asyncio.CancelledError) as e:
+            except (Exception, asyncio.CancelledError, KeyboardInterrupt) as e:
                 logger.debug(f"更新插件 [{plugin.meta.name}] 状态跳过: {e}")
 
         try:
             await self.plugin_manager.unload_all()
-        except (Exception, asyncio.CancelledError) as e:
+        except (Exception, asyncio.CancelledError, KeyboardInterrupt) as e:
             logger.error(f"卸载插件异常: {e}")
 
         self.registry.clear()
 
         try:
             await self.database.close()
-        except (Exception, asyncio.CancelledError) as e:
+        except (Exception, asyncio.CancelledError, KeyboardInterrupt) as e:
             logger.debug(f"关闭数据库跳过: {e}")
 
         self._running = False

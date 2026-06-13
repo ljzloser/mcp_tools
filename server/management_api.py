@@ -294,6 +294,7 @@ class ManagementAPI:
                 has_widget = self.plugin_manager.get_widget(name) is not None
                 has_config = plugin.config_class is not None
                 mcp_enabled = await self.database.is_plugin_mcp_enabled(name)
+                readme = plugin.get_readme()
                 return PluginDetail(
                     name=name,
                     display_name=plugin.meta.display_name,
@@ -306,6 +307,7 @@ class ManagementAPI:
                         for t in tools
                     ],
                     config=config,
+                    readme=readme,
                     has_widget=has_widget,
                     has_config=has_config,
                     mcp_enabled=mcp_enabled,
@@ -574,7 +576,7 @@ class ManagementAPI:
                     self._task.cancel()
                     try:
                         await self._task
-                    except (asyncio.CancelledError, Exception):
+                    except (asyncio.CancelledError, Exception, KeyboardInterrupt):
                         pass
             self._server = None
             self._task = None

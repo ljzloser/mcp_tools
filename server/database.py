@@ -338,7 +338,7 @@ class Database:
         if conditions:
             sql += " WHERE " + " AND ".join(conditions)
 
-        sql += " ORDER BY id DESC LIMIT ?"
+        sql += " ORDER BY id ASC LIMIT ?"
         params.append(limit)
 
         cursor = await self._conn.execute(sql, tuple(params))

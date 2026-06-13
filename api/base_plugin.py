@@ -207,6 +207,20 @@ class BasePlugin(ABC, Generic[CM]):
             is_error=True,
         )
 
+    # ── README ──
+
+    def get_readme(self) -> str:
+        """返回插件的 README 内容（Markdown 格式）
+
+        默认实现：读取插件目录下的 README.md。
+        子类可覆写此方法返回自定义内容。
+        """
+        from utils.paths import paths
+        readme_path = paths.plugins_dir / self.meta.name / "README.md"
+        if readme_path.exists():
+            return readme_path.read_text(encoding="utf-8")
+        return ""
+
     # ── 生命周期钩子（可选覆写）──
 
     async def on_load(self) -> None:
@@ -216,7 +230,3 @@ class BasePlugin(ABC, Generic[CM]):
     async def on_unload(self) -> None:
         """插件卸载时调用（清理资源）"""
         pass
-
-    async def health_check(self) -> bool:
-        """健康检查，返回 True 表示正常"""
-        return True

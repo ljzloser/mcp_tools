@@ -19,7 +19,6 @@ from qfluentwidgets import (
     SimpleCardWidget,
     InfoBar,
     InfoBarPosition,
-    IconWidget,
     ToolButton,
 )
 from PySide6.QtCore import Qt, QTimer, Signal
@@ -32,13 +31,13 @@ from PySide6.QtWidgets import (
     QLabel,
     QScrollArea,
     QDialog,
+    QTextBrowser,
 )
 
 from api.protocol import (
     PluginDetail,
     PluginListResponse,
     PluginSummary,
-    PluginToolItem,
     SimpleResponse,
 )
 from api.routes import Routes
@@ -134,28 +133,6 @@ class PluginCard(CardWidget):
         self._status = status
         color = STATUS_COLORS.get(status, "#8a8a8a")
         self.status_dot.setStyleSheet(f"color: {color}; font-size: 14px;")
-
-
-class ToolItem(SimpleCardWidget):
-    """工具列表项"""
-
-    def __init__(self, tool: PluginToolItem, parent=None):
-        super().__init__(parent)
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(14, 10, 14, 10)
-
-        icon = IconWidget(FluentIcon.CODE, self)
-        icon.setFixedSize(20, 20)
-        layout.addWidget(icon)
-
-        text_layout = QVBoxLayout()
-        text_layout.setSpacing(2)
-        name_label = StrongBodyLabel(tool.name)
-        desc_label = CaptionLabel(tool.description or "无描述")
-        desc_label.setStyleSheet("color: #888;")
-        text_layout.addWidget(name_label)
-        text_layout.addWidget(desc_label)
-        layout.addLayout(text_layout, 1)
 
 
 class PluginDetailPanel(QWidget):
@@ -272,19 +249,20 @@ class PluginDetailPanel(QWidget):
 
         self._content_layout.addWidget(self.info_card)
 
-        # ── 工具列表 ──
-        tools_header = QHBoxLayout()
-        self.tools_label = SubtitleLabel("工具列表")
-        self.tools_label.setStyleSheet("font-size: 15px;")
-        tools_header.addWidget(self.tools_label)
-        tools_header.addStretch()
-        self._content_layout.addLayout(tools_header)
+        # ── README ──
+        readme_header = QHBoxLayout()
+        self.readme_label = SubtitleLabel("插件说明")
+        self.readme_label.setStyleSheet("font-size: 15px;")
+        readme_header.addWidget(self.readme_label)
+        readme_header.addStretch()
+        self._content_layout.addLayout(readme_header)
 
-        self.tools_card = SimpleCardWidget()
-        self.tools_layout = QVBoxLayout(self.tools_card)
-        self.tools_layout.setSpacing(4)
-        self.tools_layout.setContentsMargins(8, 8, 8, 8)
-        self._content_layout.addWidget(self.tools_card, 1)
+        self.readme_browser = QTextBrowser()
+        self.readme_browser.setOpenExternalLinks(True)
+        self.readme_browser.setStyleSheet(
+            "QTextBrowser { background: transparent; border: none; padding: 8px; }"
+        )
+        self._content_layout.addWidget(self.readme_browser, 1)
 
         self._content_layout.addStretch()
         scroll.setWidget(self._content)
@@ -324,9 +302,11 @@ class PluginDetailPanel(QWidget):
         self._current_enabled = checked
         self.enabled_changed.emit(self._current_plugin, checked)
         if checked:
-            self._enable_req = self.http.put(Routes.plugin_enable(self._current_plugin))
+            self._enable_req = self.http.put(
+                Routes.plugin_enable(self._current_plugin))
         else:
-            self._disable_req = self.http.put(Routes.plugin_disable(self._current_plugin))
+            self._disable_req = self.http.put(
+                Routes.plugin_disable(self._current_plugin))
 
     def _on_mcp_changed(self, checked: bool) -> None:
         """MCP 开关 — 控制工具的 MCP 对外暴露"""
@@ -345,7 +325,8 @@ class PluginDetailPanel(QWidget):
         if not self._current_plugin:
             return
         self._config_plugin_name = self._current_plugin
-        self._config_load_req = self.http.get(Routes.plugin_config(self._current_plugin))
+        self._config_load_req = self.http.get(
+            Routes.plugin_config(self._current_plugin))
 
     def _show_config_dialog(self, name: str, config_data: dict, schema: dict) -> None:
         """展示配置对话框"""
@@ -417,7 +398,8 @@ class PluginDetailPanel(QWidget):
         """从表单收集值并保存到后端"""
         if self._config_form is None:
             return
-        values = self._config_form.get_values() if hasattr(self._config_form, "get_values") else {}
+        values = self._config_form.get_values() if hasattr(
+            self._config_form, "get_values") else {}
         self._config_save_req = self.http.put(
             Routes.plugin_config(name),
             body={"config": values},
@@ -451,7 +433,8 @@ class PluginDetailPanel(QWidget):
             label = self.STATUS_LABELS.get(detail.status, detail.status)
             self.status_dot.setStyleSheet(f"color: {color}; font-size: 14px;")
             self.status_label.setText(label)
-            self.status_label.setStyleSheet(f"color: {color}; font-weight: 500;")
+            self.status_label.setStyleSheet(
+                f"color: {color}; font-weight: 500;")
 
             # 更新开关（不触发信号）
             self.switch.blockSignals(True)
@@ -465,20 +448,14 @@ class PluginDetailPanel(QWidget):
             # 更新操作按钮
             self._update_action_buttons()
 
-            # 更新工具列表
-            while self.tools_layout.count():
-                child = self.tools_layout.takeAt(0)
-                if child.widget():
-                    child.widget().deleteLater()
+            # 更新 README
+            if detail.readme:
+                self.readme_browser.setMarkdown(detail.readme)
 
-            if not detail.tools:
-                empty_label = CaptionLabel("  暂无工具")
-                empty_label.setStyleSheet("color: #888; padding: 8px;")
-                self.tools_layout.addWidget(empty_label)
             else:
-                for tool in detail.tools:
-                    item = ToolItem(tool)
-                    self.tools_layout.addWidget(item)
+                self.readme_browser.setPlainText("暂无说明文档")
+            self.readme_browser.setVisible(True)
+            self.readme_label.setVisible(True)
 
         # MCP 开关响应
         if hasattr(self, "_mcp_req") and request_id == self._mcp_req:
@@ -503,8 +480,10 @@ class PluginDetailPanel(QWidget):
                 )
 
         # 启用/禁用响应 → 刷新详情
-        enable_ok = hasattr(self, "_enable_req") and request_id == self._enable_req and SimpleResponse(**data).ok
-        disable_ok = hasattr(self, "_disable_req") and request_id == self._disable_req and SimpleResponse(**data).ok
+        enable_ok = hasattr(
+            self, "_enable_req") and request_id == self._enable_req and SimpleResponse(**data).ok
+        disable_ok = hasattr(
+            self, "_disable_req") and request_id == self._disable_req and SimpleResponse(**data).ok
 
         if enable_ok or disable_ok:
             action = "启用" if enable_ok else "禁用"
@@ -583,8 +562,10 @@ class PluginListPage(QWidget):
         splitter.addWidget(self.detail_panel)
 
         # 详情面板信号 → 同步左侧卡片
-        self.detail_panel.enabled_changed.connect(self._on_detail_enabled_changed)
-        self.detail_panel.status_changed.connect(self._on_detail_status_changed)
+        self.detail_panel.enabled_changed.connect(
+            self._on_detail_enabled_changed)
+        self.detail_panel.status_changed.connect(
+            self._on_detail_status_changed)
 
         splitter.setSizes([300, 600])
         layout.addWidget(splitter, 1)
