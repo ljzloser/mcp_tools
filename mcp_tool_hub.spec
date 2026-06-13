@@ -14,47 +14,9 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 
 
-# ── 扫描插件依赖 ──
-def scan_plugin_imports():
-    """扫描所有插件的第三方依赖"""
-    imports = set()
-    for plugin_dir in Path("plugins").iterdir():
-        if not plugin_dir.is_dir() or plugin_dir.name.startswith(("_", ".")):
-            continue
-        for py_file in plugin_dir.rglob("*.py"):
-            try:
-                content = py_file.read_text(encoding="utf-8")
-                import ast
-                tree = ast.parse(content)
-                for node in ast.walk(tree):
-                    if isinstance(node, ast.Import):
-                        for a in node.names:
-                            imports.add(a.name.split(".")[0])
-                    elif isinstance(node, ast.ImportFrom) and node.module:
-                        imports.add(node.module.split(".")[0])
-            except:
-                pass
-    # 过滤标准库和已手动包含的
-    stdlib = {
-        "loguru", "pydantic", "PySide6", "qfluentwidgets",
-        "api", "server", "client", "utils",
-        # 标准库
-        "os", "sys", "re", "typing", "pathlib", "io", "struct",
-        "collections", "platform", "ast", "datetime", "json",
-        "csv", "sqlite3", "base64", "subprocess", "threading",
-        "concurrent", "asyncio", "abc", "functools", "itertools",
-        "copy", "pickle", "shutil", "tempfile", "warnings",
-        "contextlib", "dataclasses", "enum", "gc", "inspect",
-        "__future__",
-    }
-    return sorted(imports - stdlib - {""})
-
-plugin_deps = scan_plugin_imports()
-print("插件依赖:", plugin_deps)
-
-
 # ── 插件模块收集 ──
 # 插件通过 importlib.import_module 动态加载，PyInstaller 无法自动发现
+# 已在 server.py 中预声明 import，PyInstaller 会自动分析依赖
 plugin_hiddenimports = []
 for item in sorted(Path("plugins").iterdir()):
     if item.is_dir() and not item.name.startswith("_") and not item.name.startswith("."):
@@ -92,18 +54,15 @@ common_hiddenimports = [
     "loguru",
     # Qt
     "PySide6.QtWinExtras",
+    "pillow"
 ]
 common_hiddenimports.extend(plugin_hiddenimports)
-common_hiddenimports.extend(plugin_deps)
 
 # ── 通用排除 ──
 common_excludes = [
     "tkinter",
     "matplotlib",
-    "numpy",
     "scipy",
-    "pandas",
-    "PIL",
     "cv2",
     "torch",
     "tensorflow",
@@ -143,7 +102,6 @@ a_client = Analysis(
     pathex=[],
     binaries=[],
     datas=common_datas,
-    hiddenimports=common_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
