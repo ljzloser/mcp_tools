@@ -41,7 +41,7 @@ UninstallDisplayIcon={app}\{#AppExeName}
 OutputDir=dist
 OutputBaseFilename=mcp-tool-hub-{#Version}-setup
 SetupIconFile=assets\icon.ico
-Compression=lzma2/ultra64
+Compression=lzma2/normal
 SolidCompression=yes
 LZMANumBlockThreads=4
 
