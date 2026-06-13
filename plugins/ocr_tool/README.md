@@ -60,13 +60,6 @@ sudo yum install tesseract-ocr
 | `ocr_recognize` | 识别图片中的文字，支持多语言 |
 | `ocr_languages` | 查看 Tesseract 支持的语言列表 |
 
-## Python 依赖
-
-```
-pytesseract>=0.3.10
-Pillow>=10.0.0  # 已有
-```
-
 ## 示例
 
 ### 识别中文英文混合图片
