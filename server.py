@@ -6,16 +6,8 @@
 """
 
 from __future__ import annotations
-
 # 预声明所有插件，强制 PyInstaller 打包时包含插件依赖
-import plugins.calculator_tool  # 依赖 sympy, pendulum, pint
-import plugins.image_tool        # 依赖 PySide6
-import plugins.json_tool         # 依赖 jmespath
-import plugins.markitdown_tool   # 依赖 markitdown
-import plugins.ocr_tool          # 依赖 pytesseract, pyzbar
-import plugins.qrbarcode_tool    # 依赖 qrcode, python-barcode
-import plugins.sqlite_tool       # 依赖 aiosqlite
-import plugins.modbus_tool       # 依赖 pymodbus
+import plugins
 
 import argparse
 import asyncio

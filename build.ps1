@@ -2,15 +2,18 @@
 # 产出: dist/mcp-tool-hub/  (单目录，含 mcp-server.exe + mcp-client.exe)
 #
 # 用法:
-#   .\build.ps1              # 默认构建
+#   .\build.ps1              # 默认构建（包含 Web 前端）
 #   .\build.ps1 -Clean       # 清理后构建
 #   .\build.ps1 -SkipInstall # 跳过 pyinstaller 安装检查
+#   .\build.ps1 -SkipWeb     # 跳过 Web 前端构建
+#   .\build.ps1 -Inno        # 同时构建 Inno Setup 安装包
 
 param(
     [switch] $Clean,
     [switch] $SkipInstall,
     [switch] $SkipUpx,
-    [switch] $Inno
+    [switch] $Inno,
+    [switch] $SkipWeb
 )
 
 $ErrorActionPreference = "Stop"
@@ -67,7 +70,68 @@ if (-not (Test-Path $SpecFile)) {
 Write-OK "Spec 文件: $SpecFile"
 
 # ═══════════════════════════════════════════════════════════════
-# 2. 清理（仅在 -Clean 模式下执行，否则保留构建缓存以支持增量构建）
+# 2. 构建 Web 前端 (npm)
+# ═══════════════════════════════════════════════════════════════
+Write-Step "构建 Web 前端"
+
+if ($SkipWeb) {
+    Write-OK "跳过 Web 前端构建 (-SkipWeb)"
+}
+else {
+    $webDir = "$ScriptDir\web"
+    $webPackage = "$webDir\package.json"
+    $webDist = "$webDir\dist"
+    $assetsWeb = "$ScriptDir\assets\web"
+    
+    if (-not (Test-Path $webPackage)) {
+        Write-Warn "web/package.json 未找到，跳过 Web 前端构建"
+    }
+    else {
+        # 检查 node/npm
+        $nodeExe = Get-Command node -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
+        $npmExe = Get-Command npm -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
+        
+        if (-not $nodeExe) {
+            Write-Warn "未找到 node.js，跳过 Web 前端构建"
+            Write-Warn "请安装 Node.js 并添加到 PATH: https://nodejs.org/"
+        }
+        else {
+            Write-OK "Node.js: $nodeExe"
+            
+            # 检查是否需要构建（对比源文件和目标文件时间戳）
+            $needBuild = $true
+            if (Test-Path $assetsWeb) {
+                $srcTime = (Get-ChildItem $webDir\src -Recurse -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1).LastWriteTime
+                $distTime = (Get-ChildItem $assetsWeb -Recurse -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1).LastWriteTime
+                if ($srcTime -lt $distTime) {
+                    $needBuild = $false
+                    Write-OK "Web 前端已是最新，跳过构建"
+                }
+            }
+            
+            if ($needBuild) {
+                Write-OK "执行: npm run build (在 web/ 目录)"
+                
+                Push-Location $webDir
+                try {
+                    & $npmExe run build
+                    if ($LASTEXITCODE -ne 0) {
+                        Write-Err "npm run build 失败 (退出码: $LASTEXITCODE)"
+                        exit $LASTEXITCODE
+                    }
+                }
+                finally {
+                    Pop-Location
+                }
+                
+                Write-OK "Web 前端构建完成"
+            }
+        }
+    }
+}
+
+# ═══════════════════════════════════════════════════════════════
+# 4. 清理（仅在 -Clean 模式下执行，否则保留构建缓存以支持增量构建）
 # ═══════════════════════════════════════════════════════════════
 if ($Clean) {
     Write-Step "清理旧的构建产物（-Clean 模式）"
@@ -104,7 +168,7 @@ else {
 }
 
 # ═══════════════════════════════════════════════════════════════
-# 3. 构建
+# 5. 构建
 # ═══════════════════════════════════════════════════════════════
 Write-Step "开始 PyInstaller 构建..."
 
@@ -140,7 +204,7 @@ if ($proc.ExitCode -ne 0) {
 Write-OK "PyInstaller 构建完成"
 
 # ═══════════════════════════════════════════════════════════════
-# 4. 验证输出
+# 6. 验证输出
 # ═══════════════════════════════════════════════════════════════
 Write-Step "验证构建产物"
 
@@ -197,7 +261,7 @@ else {
 }
 
 # ═══════════════════════════════════════════════════════════════
-# 5. 下载 nssm.exe（Windows 服务管理工具）
+# 7. 下载 nssm.exe（Windows 服务管理工具）
 # ═══════════════════════════════════════════════════════════════
 Write-Step "检查 nssm.exe"
 
@@ -250,7 +314,7 @@ if (Test-Path $OutputDir) {
 }
 
 # ═══════════════════════════════════════════════════════════════
-# 6. 汇总
+# 8. 汇总
 # ═══════════════════════════════════════════════════════════════
 Write-Host ""
 
@@ -276,7 +340,7 @@ else {
 }
 
 # ═══════════════════════════════════════════════════════════════
-# 7. Inno Setup 安装包（可选）
+# 9. Inno Setup 安装包（可选）
 # ═══════════════════════════════════════════════════════════════
 $buildInno = $Inno.IsPresent
 

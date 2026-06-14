@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import Any
 
 import uvicorn
@@ -158,11 +159,68 @@ class ManagementAPI:
         self._mcp_disabled: set[str] = set()
         self._mcp_callback: Any = None
 
+        # 挂载 Web 管理界面（如果静态文件目录存在）
+        self._mount_web_ui()
+
         self._register_routes()
 
     def set_mcp_callback(self, callback: Any) -> None:
         """设置 MCP 状态变更回调，用于同步 FastMCP 工具注册/注销"""
         self._mcp_callback = callback
+
+    def _mount_web_ui(self) -> None:
+        """条件挂载 Web 管理界面（如果静态文件目录存在）"""
+        # Web 构建产物放在 assets/web/ 下
+        from utils.paths import paths
+        static_dir = paths.assets_dir / "web"
+        if static_dir.exists() and (static_dir / "index.html").exists():
+            from starlette.staticfiles import StaticFiles as BaseStaticFiles
+            from starlette.responses import FileResponse
+
+            class CorrectMimeStaticFiles(BaseStaticFiles):
+                """修正 MIME 类型的 StaticFiles"""
+
+                async def get_response(self, path: str, scope):
+                    response = await super().get_response(path, scope)
+                    # 修正常见 MIME 类型
+                    if path.endswith('.js'):
+                        response.headers['content-type'] = 'application/javascript; charset=utf-8'
+                    elif path.endswith('.css'):
+                        response.headers['content-type'] = 'text/css; charset=utf-8'
+                    elif path.endswith('.json'):
+                        response.headers['content-type'] = 'application/json'
+                    elif path.endswith('.woff2'):
+                        response.headers['content-type'] = 'font/woff2'
+                    elif path.endswith('.woff'):
+                        response.headers['content-type'] = 'font/woff'
+                    elif path.endswith('.ttf'):
+                        response.headers['content-type'] = 'font/ttf'
+                    elif path.endswith('.svg'):
+                        response.headers['content-type'] = 'image/svg+xml'
+                    return response
+
+            # favicon 路由（必须在 mount 之前注册）
+            @self.app.get("/web/icon.ico")
+            async def serve_favicon():
+                icon_path = paths.icon_path
+                if icon_path.exists():
+                    return FileResponse(icon_path, media_type="image/x-icon")
+                from fastapi.responses import Response
+                return Response(status_code=404)
+
+            # mount 到 /web/
+            self.app.mount(
+                "/web/", CorrectMimeStaticFiles(directory=str(static_dir), html=True), name="static")
+
+            @self.app.get("/")
+            async def serve_root():
+                # 根路径重定向到 /web/
+                from fastapi.responses import HTMLResponse
+                return HTMLResponse("<meta http-equiv='refresh' content='0;url=/web/'>")
+
+            logger.info(f"Web 管理理界面已挂载: http://{self.host}:{self.port}/web/")
+        else:
+            logger.info("Web 管理界面未构建（静态文件目录不存在），跳过挂载")
 
     def _register_routes(self) -> None:
         """注册所有路由"""

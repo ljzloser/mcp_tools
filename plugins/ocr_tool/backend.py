@@ -97,7 +97,7 @@ class OcrToolPlugin(BasePlugin[OcrToolConfig]):
 
         # 设置自定义路径（如果配置了）
         tesseract_path = self.config.tesseract_path
-        if tesseract_path:
+        if tesseract_path and Path(tesseract_path).exists():
             pytesseract.pytesseract.tesseract_cmd = tesseract_path
             # 自动设置 TESSDATA_PREFIX（从 tesseract.exe 推出 tessdata 目录）
             tesseract_dir = Path(tesseract_path).resolve().parent

@@ -34,3 +34,7 @@ Desktop.ini
 
 # 服务安装文件
 nssm.exe
+
+# 网页静态文件及node_modules
+assets/web/*
+*/node_modules/*

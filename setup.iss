@@ -75,6 +75,8 @@ english.WelcomeLabel2=This will install {#AppName} {#Version} on your computer.%
 ; ── 快捷方式 ──
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 Name: "startmenuicon"; Description: "创建开始菜单快捷方式 / Create Start Menu shortcuts"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checkedonce
+; ── 服务 ──
+Name: "installservice"; Description: "安装为 Windows 服务（开机自启） / Install as Windows service"; GroupDescription: "服务选项 / Service Options"
 
 [Files]
 ; ── 主程序 ──
@@ -99,6 +101,14 @@ Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"; Ta
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\{#AppExeName}"; Tasks: desktopicon
 
 [Run]
+; ── 安装服务（如果选择了 installservice 任务） ──
+Filename: "{app}\nssm.exe"; Parameters: "install ""MCPToolHub"" ""{app}\mcp-server.exe"" --sse"; Flags: runhidden waituntilterminated; Tasks: installservice
+Filename: "{app}\nssm.exe"; Parameters: "set ""MCPToolHub"" AppDirectory ""{app}"""; Flags: runhidden waituntilterminated; Tasks: installservice
+Filename: "{app}\nssm.exe"; Parameters: "set ""MCPToolHub"" DisplayName ""MCP Tool Hub Service"""; Flags: runhidden waituntilterminated; Tasks: installservice
+Filename: "{app}\nssm.exe"; Parameters: "set ""MCPToolHub"" Description ""MCP Tool Hub - 集成式 MCP 工具平台"""; Flags: runhidden waituntilterminated; Tasks: installservice
+Filename: "{app}\nssm.exe"; Parameters: "set ""MCPToolHub"" Start SERVICE_AUTO_START"; Flags: runhidden waituntilterminated; Tasks: installservice
+Filename: "{app}\nssm.exe"; Parameters: "start ""MCPToolHub"""; Flags: runhidden waituntilterminated; Tasks: installservice
+
 ; ── 完成后启动 ──
 Filename: "{app}\{#AppExeName}"; Description: "启动 MCP Tool Hub 管理界面"; Flags: nowait postinstall skipifsilent
 
@@ -118,9 +128,21 @@ end;
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   DataPath: string;
+  ResultCode: Integer;
 begin
-  if CurUninstallStep = usPostUninstall then
+  if CurUninstallStep = usUninstall then
   begin
+    // 1. 卸载 Windows 服务
+    if Exec(ExpandConstant('{app}\nssm.exe'), 'stop "MCPToolHub" 60000', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    begin
+      Exec(ExpandConstant('{app}\nssm.exe'), 'remove "MCPToolHub" confirm', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    end;
+    
+    // 2. 结束运行中的进程
+    Exec('taskkill', '/F /IM mcp-server.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Exec('taskkill', '/F /IM mcp-client.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    
+    // 3. 询问是否删除用户数据目录
     DataPath := ExpandConstant('{localappdata}\{#DataDirName}');
     if DirExists(DataPath) then
     begin
