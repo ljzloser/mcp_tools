@@ -318,14 +318,19 @@ if (Test-Path $OutputDir) {
 # ═══════════════════════════════════════════════════════════════
 Write-Step "生成 output 目录"
 
-$OutputZipDir = "$DistDir\output"
+$OutputZipDir = "$ScriptDir\output"
 if (-not (Test-Path $OutputZipDir)) {
     New-Item -ItemType Directory -Path $OutputZipDir -Force | Out-Null
 }
 Write-OK "output 目录: $OutputZipDir"
 
+# 读取版本号
+$version = (Select-String -Path "pyproject.toml" -Pattern 'version\s*=\s*"([^"]+)"').Matches.Groups[1].Value
+if (-not $version) { $version = "0.1.0" }
+Write-OK "版本: $version"
+
 # 创建 ZIP 压缩包（绿色版）
-$zipFileName = "mcp-tool-hub-win64.zip"
+$zipFileName = "mcp-tool-hub-$version-win64.zip"
 $zipPath = "$OutputZipDir\$zipFileName"
 if (Test-Path $zipPath) {
     Remove-Item $zipPath -Force
