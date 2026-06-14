@@ -114,6 +114,16 @@ jobs:
           choco install innosetup -y
         shell: pwsh
 
+      - name: Download Chinese language file
+        run: |
+          $isDir = "C:\Program Files (x86)\Inno Setup 6"
+          $langDir = "$isDir\Languages"
+          if (-not (Test-Path $langDir)) { New-Item -ItemType Directory -Path $langDir -Force }
+          Invoke-WebRequest -Uri "https://github.com/jrsoftware/issrc/releases/download/is-6.2.2/innosetup-6.2.2-anguages.zip" -OutFile "$env:TEMP\languages.zip" -UseBasicParsing
+          Expand-Archive -Path "$env:TEMP\languages.zip" -DestinationPath "$env:TEMP\lang" -Force
+          Copy-Item "$env:TEMP\lang\*.isl" $langDir -Force
+        shell: pwsh
+
       - name: Build installer
         run: .\build.ps1 -Inno -SkipInstall -SkipWeb
         shell: pwsh
