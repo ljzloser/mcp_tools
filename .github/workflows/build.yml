@@ -18,7 +18,7 @@ env:
     PYTHON_VERSION: "3.12"
     NODE_VERSION: "20"
 permissions:
-  contents: write
+    contents: write
 jobs:
     # ═══════════════════════════════════════════════════════════════
     # 构建 + 安装包 + Release (单作业，一次构建)

@@ -425,30 +425,3 @@ if ($buildInno -and $allGood) {
     }
 }
 
-# ══════════════════════════════════════════════════════════════���
-# 10. 打包 ZIP (绿色版)
-# ═══════════════════════════════════════════════════════════════
-Write-Step "打包 ZIP 绿色版"
-
-$zipName = "mcp-tool-hub-$version-win64.zip"
-$zipPath = "$OutputDir\$zipName"
-$sourceDir = "$DistDir\$OutputName"
-
-if (Test-Path $sourceDir) {
-    # 确保 output 目录存在
-    if (-not (Test-Path $OutputDir)) {
-        New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
-    }
-    
-    # 压缩
-    if (Test-Path $zipPath) {
-        Remove-Item $zipPath -Force
-    }
-    Compress-Archive -Path "$sourceDir\*" -DestinationPath $zipPath -Force
-    
-    $zipSize = [math]::Round((Get-Item $zipPath).Length / 1MB, 2)
-    Write-OK "绿色版: $zipName ($zipSize MB)"
-}
-else {
-    Write-Warn "未找到构建输出目录，跳过 ZIP 打包"
-}
