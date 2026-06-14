@@ -1,17 +1,11 @@
 # MCP Tool Hub CI/CD 工作流
-# 触发条件:
-#   - push 到 master/main 分支
-#   - 创建/更新 Release
-#   - 手动触发
+# 触发条件: 仅在推送 tag (v*) 时触发
 name: Build & Release
 
 on:
   push:
-    branches: [master, main]
     tags:
       - "v*"
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       skip_web:
@@ -26,15 +20,11 @@ env:
 
 jobs:
   # ═══════════════════════════════════════════════════════════════
-  # 1. 构建 PyInstaller 可执行文件
+  # 构建 + 安装包 + Release (单作业，一次构建)
   # ═══════════════════════════════════════════════════════════════
-  build:
-    name: Build (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest]
+  build-and-release:
+    name: Build & Release
+    runs-on: windows-latest
 
     steps:
       - name: Checkout code
@@ -70,45 +60,6 @@ jobs:
           npm run build
         shell: pwsh
 
-      - name: Build with PyInstaller
-        run: .\build.ps1
-        shell: pwsh
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: mcp-tool-hub-${{ runner.os }}
-          path: |
-            dist/mcp-tool-hub/
-          retention-days: 7
-
-  # ═══════════════════════════════════════════════════════════════
-  # 2. 构建 Inno Setup 安装包 (仅 Windows + Release/Tag)
-  # ═══════════════════════════════════════════════════════════════
-  installer:
-    name: Build Installer
-    needs: build
-    runs-on: windows-latest
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: mcp-tool-hub-Windows
-          path: dist/mcp-tool-hub/
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-
       - name: Install Inno Setup
         run: |
           choco install innosetup -y
@@ -122,17 +73,38 @@ jobs:
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/kira-96/Inno-Setup-Chinese-Simplified-Translation/main/ChineseSimplified.isl" -OutFile "$langDir\ChineseSimplified.isl" -UseBasicParsing
         shell: pwsh
 
-      - name: Build installer
-        run: .\build.ps1 -Inno -SkipInstall -SkipWeb
+      - name: Build with PyInstaller + Installer
+        run: .\build.ps1 -Inno
         shell: pwsh
 
-      - name: Upload installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: mcp-tool-hub-installer
-          path: dist/mcp-tool-hub-*-setup.exe
-          retention-days: 30
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-  # ═══════════════════════════════════════════════════════════════
-  # 3. 发布 Release (仅当推送 tag 时)
-  # ═══════════════════════════════════════════════════════════════
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: MCP Tool Hub v${{ steps.version.outputs.VERSION }}
+          body: |
+            ## 下载说明
+
+            ### 便携版 (Portable)
+            解压后直接运行：
+            - `mcp-server.exe --sse` - 启动 MCP 服务端
+            - `mcp-client.exe` - 启动管理界面
+
+            ### 安装包 (Installer)
+            下载 `mcp-tool-hub-{VERSION}-setup.exe` 安装到系统
+
+            ## 功能特性
+            - 集成式 MCP 工具平台
+            - 支持 Windows 服务部署
+            - 插件化架构，易于扩展
+          files: |
+            dist/mcp-tool-hub/mcp-server.exe
+            dist/mcp-tool-hub/mcp-client.exe
+            dist/mcp-tool-hub/_internal/
+            dist/mcp-tool-hub/nssm.exe
+            dist/mcp-tool-hub-*-setup.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
