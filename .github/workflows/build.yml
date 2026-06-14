@@ -9,20 +9,20 @@ on:
   push:
     branches: [master, main]
     tags:
-      - 'v*'
+      - "v*"
   release:
     types: [published]
   workflow_dispatch:
     inputs:
       skip_web:
-        description: '跳过 Web 前端构建'
+        description: "跳过 Web 前端构建"
         required: false
-        default: 'false'
+        default: false
         type: boolean
 
 env:
-  PYTHON_VERSION: '3.12'
-  NODE_VERSION: '20'
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
 
 jobs:
   # ═══════════════════════════════════════════════════════════════
@@ -56,7 +56,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: web/package-lock.json
 
       - name: Sync dependencies
@@ -128,77 +128,3 @@ jobs:
   # ═══════════════════════════════════════════════════════════════
   # 3. 发布 Release (仅当推送 tag 时)
   # ═══════════════════════════════════════════════════════════════
-  release:
-    name: Create Release
-    needs: [build, installer]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Get version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: MCP Tool Hub v${{ steps.version.outputs.VERSION }}
-          body: |
-            ## 下载说明
-
-            ### 便携版 (Portable)
-            下载 `mcp-tool-hub-win64.zip`，解压后直接运行：
-            - `mcp-server.exe --sse` - 启动 MCP 服务端
-            - `mcp-client.exe` - 启动管理界面
-
-            ### 安装包 (Installer)
-            下载 `mcp-tool-hub-{VERSION}-setup.exe` 安装到系统
-
-            ## 功能特性
-            - 集成式 MCP 工具平台
-            - 支持 Windows 服务部署
-            - 插件化架构，易于扩展
-          files: |
-            artifacts/mcp-tool-hub-Windows/**/*
-            artifacts/mcp-tool-hub-installer/**/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # ═══════════════════════════════════════════════════════════════
-  # 4. 上传至 PyPI (仅当推送 tag 且版本匹配)
-  # ═══════════════════════════════════════════════════════════════
-  pypi:
-    name: Publish to PyPI
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-
-      - name: Build source distribution
-        run: uv build --sdist
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
