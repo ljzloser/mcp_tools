@@ -22,6 +22,7 @@ Set-Location $ScriptDir
 
 $SpecFile = "mcp_tool_hub.spec"
 $DistDir = "dist"
+$OutputDir = "output"
 $OutputName = "mcp-tool-hub"
 
 # ── 颜色辅助函数 ──
@@ -306,12 +307,33 @@ else {
     Write-OK "临时文件已清理"
 }
 
-# 复制 nssm.exe 到输出目录
 $OutputDir = "$DistDir\$OutputName"
 if (Test-Path $OutputDir) {
     Copy-Item $NssmExe "$OutputDir\nssm.exe" -Force
     Write-OK "nssm.exe 已复制到 $OutputDir\"
 }
+
+# ═══════════════════════════════════════════════════════════════
+# 8. 生成 output 目录（ZIP + 安装包）
+# ═══════════════════════════════════════════════════════════════
+Write-Step "生成 output 目录"
+
+$OutputZipDir = "$DistDir\output"
+if (-not (Test-Path $OutputZipDir)) {
+    New-Item -ItemType Directory -Path $OutputZipDir -Force | Out-Null
+}
+Write-OK "output 目录: $OutputZipDir"
+
+# 创建 ZIP 压缩包（绿色版）
+$zipFileName = "mcp-tool-hub-win64.zip"
+$zipPath = "$OutputZipDir\$zipFileName"
+if (Test-Path $zipPath) {
+    Remove-Item $zipPath -Force
+}
+Write-OK "创建绿色版 ZIP: $zipFileName"
+Compress-Archive -Path "$OutputDir\*" -DestinationPath $zipPath -CompressionLevel Optimal
+$zipSize = [math]::Round((Get-Item $zipPath).Length / 1MB, 2)
+Write-OK "绿色版: $zipSize MB"
 
 # ═══════════════════════════════════════════════════════════════
 # 8. 汇总
@@ -387,7 +409,7 @@ if ($buildInno -and $allGood) {
                 Write-Err "Inno Setup 构建失败 (退出码: $($proc.ExitCode))"
             }
             else {
-                $setupFile = Get-Item "$DistDir\mcp-tool-hub-$version-setup.exe" -ErrorAction SilentlyContinue
+                $setupFile = Get-Item "output\mcp-tool-hub-$version-setup.exe" -ErrorAction SilentlyContinue
                 if ($setupFile) {
                     $setupSize = [math]::Round($setupFile.Length / 1MB, 2)
                     Write-OK "安装包: $($setupFile.Name) ($setupSize MB)"
@@ -395,7 +417,38 @@ if ($buildInno -and $allGood) {
                 else {
                     Write-Warn "安装包已生成但未找到输出文件"
                 }
+
+                # 复制安装包到 output 目录（ISCC 已经输出到 output）
+                Write-OK "安装包已生成到 output/ 目录"
             }
         }
     }
+}
+
+# ══════════════════════════════════════════════════════════════���
+# 10. 打包 ZIP (绿色版)
+# ═══════════════════════════════════════════════════════════════
+Write-Step "打包 ZIP 绿色版"
+
+$zipName = "mcp-tool-hub-$version-win64.zip"
+$zipPath = "$OutputDir\$zipName"
+$sourceDir = "$DistDir\$OutputName"
+
+if (Test-Path $sourceDir) {
+    # 确保 output 目录存在
+    if (-not (Test-Path $OutputDir)) {
+        New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
+    }
+    
+    # 压缩
+    if (Test-Path $zipPath) {
+        Remove-Item $zipPath -Force
+    }
+    Compress-Archive -Path "$sourceDir\*" -DestinationPath $zipPath -Force
+    
+    $zipSize = [math]::Round((Get-Item $zipPath).Length / 1MB, 2)
+    Write-OK "绿色版: $zipName ($zipSize MB)"
+}
+else {
+    Write-Warn "未找到构建输出目录，跳过 ZIP 打包"
 }

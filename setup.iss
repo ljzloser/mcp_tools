@@ -38,7 +38,7 @@ UninstallDisplayName={#AppName}
 UninstallDisplayIcon={app}\{#AppExeName}
 
 ; ── 输出 ──
-OutputDir=dist
+OutputDir=output
 OutputBaseFilename=mcp-tool-hub-{#Version}-setup
 SetupIconFile=assets\icon.ico
 Compression=lzma2/normal

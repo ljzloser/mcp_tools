@@ -102,10 +102,7 @@ jobs:
                       - 支持 Windows 服务部署
                       - 插件化架构，易于扩展
                   files: |
-                      dist/mcp-tool-hub/mcp-server.exe
-                      dist/mcp-tool-hub/mcp-client.exe
-                      dist/mcp-tool-hub/_internal/**/*
-                      dist/mcp-tool-hub/nssm.exe
-                      dist/mcp-tool-hub-*-setup.exe
+                      output/mcp-tool-hub-*.zip
+                      output/mcp-tool-hub-*-setup.exe
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
