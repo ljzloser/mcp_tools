@@ -80,7 +80,10 @@ jobs:
 
             - name: Get version from tag
               id: version
-              run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+              run: |
+                $version = $env:GITHUB_REF -replace 'refs/tags/v', ''
+                Write-Host "Version: $version"
+                echo "VERSION=$version" >> $env:GITHUB_OUTPUT
 
             - name: Create GitHub Release
               uses: softprops/action-gh-release@v2
@@ -90,12 +93,12 @@ jobs:
                       ## 下载说明
 
                       ### 便携版 (Portable)
-                      解压后直接运行：
+                      下载 `mcp-tool-hub-${{ steps.version.outputs.VERSION }}-win64.zip`，解压后直接运行：
                       - `mcp-server.exe --sse` - 启动 MCP 服务端
                       - `mcp-client.exe` - 启动管理界面
 
                       ### 安装包 (Installer)
-                      下载 `mcp-tool-hub-{VERSION}-setup.exe` 安装到系统
+                      下载 `mcp-tool-hub-${{ steps.version.outputs.VERSION }}-setup.exe` 安装到系统
 
                       ## 功能特性
                       - 集成式 MCP 工具平台
