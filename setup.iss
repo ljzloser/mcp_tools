@@ -16,8 +16,8 @@
 #endif
 
 #define AppName "MCP Tool Hub"
-#define AppPublisher "MCP Tool Hub"
-#define AppURL "https://github.com/example/mcp-tool-hub"
+#define AppPublisher "ljzloser"
+#define AppURL "https://github.com/ljzloser/mcp_tools"
 #define AppExeName "mcp-client.exe"
 #define ServerExeName "mcp-server.exe"
 #define DataDirName "MCP Tool Hub"
