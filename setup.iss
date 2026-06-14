@@ -89,9 +89,6 @@ Source: "dist\mcp-tool-hub\_internal\*"; DestDir: "{app}\_internal"; Flags: igno
 ; ── NSSM（服务管理由 UI 调用） ──
 Source: "dist\mcp-tool-hub\nssm.exe"; DestDir: "{app}"; Flags: ignoreversion
 
-; ── 数据目录结构（空目录占位） ──
-Source: "data\*"; DestDir: "{localappdata}\{#DataDirName}"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: not DataDirExists
-
 [Icons]
 ; ── 开始菜单 ──
 Name: "{group}\MCP Tool Hub 管理界面"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\{#AppExeName}"; Tasks: startmenuicon

@@ -3,108 +3,108 @@
 name: Build & Release
 
 on:
-  push:
-    tags:
-      - "v*"
-  workflow_dispatch:
-    inputs:
-      skip_web:
-        description: "跳过 Web 前端构建"
-        required: false
-        default: false
-        type: boolean
+    push:
+        tags:
+            - "v*"
+    workflow_dispatch:
+        inputs:
+            skip_web:
+                description: "跳过 Web 前端构建"
+                required: false
+                default: false
+                type: boolean
 
 env:
-  PYTHON_VERSION: "3.12"
-  NODE_VERSION: "20"
+    PYTHON_VERSION: "3.12"
+    NODE_VERSION: "20"
 
 jobs:
-  # ═══════════════════════════════════════════════════════════════
-  # 构建 + 安装包 + Release (单作业，一次构建)
-  # ═══════════════════════════════════════════════════════════════
-  build-and-release:
-    name: Build & Release
-    runs-on: windows-latest
+    # ═══════════════════════════════════════════════════════════════
+    # 构建 + 安装包 + Release (单作业，一次构建)
+    # ═══════════════════════════════════════════════════════════════
+    build-and-release:
+        name: Build & Release
+        runs-on: windows-latest
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
+            - name: Setup Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-          cache-dependency-paths: pyproject.toml
+            - name: Install uv
+              uses: astral-sh/setup-uv@v4
+              with:
+                  enable-cache: true
+                  cache-dependency-paths: pyproject.toml
 
-      - name: Install Node.js
-        if: inputs.skip_web != 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-          cache-dependency-path: web/package-lock.json
+            - name: Install Node.js
+              if: inputs.skip_web != 'true'
+              uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ env.NODE_VERSION }}
+                  cache: "npm"
+                  cache-dependency-path: web/package-lock.json
 
-      - name: Sync dependencies
-        run: uv sync
+            - name: Sync dependencies
+              run: uv sync
 
-      - name: Build Web frontend
-        if: inputs.skip_web != 'true'
-        run: |
-          cd web
-          npm ci
-          npm run build
-        shell: pwsh
+            - name: Build Web frontend
+              if: inputs.skip_web != 'true'
+              run: |
+                  cd web
+                  npm ci
+                  npm run build
+              shell: pwsh
 
-      - name: Install Inno Setup
-        run: |
-          choco install innosetup -y
-        shell: pwsh
+            - name: Install Inno Setup
+              run: |
+                  choco install innosetup -y
+              shell: pwsh
 
-      - name: Download Chinese language file
-        run: |
-          $isDir = "C:\Program Files (x86)\Inno Setup 6"
-          $langDir = "$isDir\Languages"
-          if (-not (Test-Path $langDir)) { New-Item -ItemType Directory -Path $langDir -Force }
-          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/kira-96/Inno-Setup-Chinese-Simplified-Translation/main/ChineseSimplified.isl" -OutFile "$langDir\ChineseSimplified.isl" -UseBasicParsing
-        shell: pwsh
+            - name: Download Chinese language file
+              run: |
+                  $isDir = "C:\Program Files (x86)\Inno Setup 6"
+                  $langDir = "$isDir\Languages"
+                  if (-not (Test-Path $langDir)) { New-Item -ItemType Directory -Path $langDir -Force }
+                  Invoke-WebRequest -Uri "https://raw.githubusercontent.com/kira-96/Inno-Setup-Chinese-Simplified-Translation/main/ChineseSimplified.isl" -OutFile "$langDir\ChineseSimplified.isl" -UseBasicParsing
+              shell: pwsh
 
-      - name: Build with PyInstaller + Installer
-        run: .\build.ps1 -Inno
-        shell: pwsh
+            - name: Build with PyInstaller + Installer
+              run: .\build.ps1 -Inno
+              shell: pwsh
 
-      - name: Get version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+            - name: Get version from tag
+              id: version
+              run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: MCP Tool Hub v${{ steps.version.outputs.VERSION }}
-          body: |
-            ## 下载说明
+            - name: Create GitHub Release
+              uses: softprops/action-gh-release@v2
+              with:
+                  name: MCP Tool Hub v${{ steps.version.outputs.VERSION }}
+                  body: |
+                      ## 下载说明
 
-            ### 便携版 (Portable)
-            解压后直接运行：
-            - `mcp-server.exe --sse` - 启动 MCP 服务端
-            - `mcp-client.exe` - 启动管理界面
+                      ### 便携版 (Portable)
+                      解压后直接运行：
+                      - `mcp-server.exe --sse` - 启动 MCP 服务端
+                      - `mcp-client.exe` - 启动管理界面
 
-            ### 安装包 (Installer)
-            下载 `mcp-tool-hub-{VERSION}-setup.exe` 安装到系统
+                      ### 安装包 (Installer)
+                      下载 `mcp-tool-hub-{VERSION}-setup.exe` 安装到系统
 
-            ## 功能特性
-            - 集成式 MCP 工具平台
-            - 支持 Windows 服务部署
-            - 插件化架构，易于扩展
-          files: |
-            dist/mcp-tool-hub/mcp-server.exe
-            dist/mcp-tool-hub/mcp-client.exe
-            dist/mcp-tool-hub/_internal/
-            dist/mcp-tool-hub/nssm.exe
-            dist/mcp-tool-hub-*-setup.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                      ## 功能特性
+                      - 集成式 MCP 工具平台
+                      - 支持 Windows 服务部署
+                      - 插件化架构，易于扩展
+                  files: |
+                      dist/mcp-tool-hub/mcp-server.exe
+                      dist/mcp-tool-hub/mcp-client.exe
+                      dist/mcp-tool-hub/_internal/
+                      dist/mcp-tool-hub/nssm.exe
+                      dist/mcp-tool-hub-*-setup.exe
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
