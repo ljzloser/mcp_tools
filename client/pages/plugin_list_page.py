@@ -539,15 +539,17 @@ class PluginListPage(QWidget):
         # 分割：左列表 + 右详情
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # 左侧：插件列表
-        left_widget = QWidget()
-        left_layout = QVBoxLayout(left_widget)
-        left_layout.setContentsMargins(0, 0, 8, 0)
-        self.plugin_list = QVBoxLayout()
+        # 左侧：插件列表（带滚动条）
+        left_scroll = QScrollArea()
+        left_scroll.setWidgetResizable(True)
+        left_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        left_scroll.setStyleSheet("QScrollArea { background: transparent; }")
+        left_container = QWidget()
+        self.plugin_list = QVBoxLayout(left_container)
         self.plugin_list.setSpacing(6)
-        left_layout.addLayout(self.plugin_list)
-        left_layout.addStretch()
-        splitter.addWidget(left_widget)
+        self.plugin_list.addStretch()
+        left_scroll.setWidget(left_container)
+        splitter.addWidget(left_scroll)
 
         # 右侧：详情
         self.detail_panel = PluginDetailPanel(self.http)

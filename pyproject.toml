@@ -26,6 +26,9 @@ dependencies = [
     "jmespath>=1.0.1",
     "pytesseract>=0.3.10",
     "pymodbus>=3.7.0",
+    "psutil>=6.0.0",
+    "paramiko>=3.4.0",
+    "cryptography>=43.0.0",
 ]
 
 [project.optional-dependencies]

@@ -11,6 +11,10 @@ from typing import Any
 from pydantic import BaseModel
 
 
+class EmptyArgs(BaseModel):
+    """空参数基类，用于无参数的工具"""
+
+
 class ToolDef:
     """
     工具定义 — 插件用它声明提供的工具和参数类型
@@ -37,10 +41,12 @@ class ToolDef:
         name: str,
         input_type: type[BaseModel],
         description: str = "",
+        dangerous: bool = False,
     ) -> None:
         self.name = name
         self.input_type = input_type
         self.description = description
+        self.dangerous = dangerous
 
     @property
     def input_schema(self) -> dict[str, Any]:

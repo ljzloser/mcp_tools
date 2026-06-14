@@ -133,7 +133,8 @@ class ToolPage(QWidget):
         self.left_scroll = QScrollArea()
         self.left_scroll.setWidgetResizable(True)
         self.left_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        self.left_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        self.left_scroll.setStyleSheet(
+            "QScrollArea { background: transparent; } QScrollBar:vertical { width: 8px; } QScrollBar::handle:vertical { background: #ccc; border-radius: 4px; min-height: 30px; }")
         left_container = QWidget()
         self.plugin_list_layout = QVBoxLayout(left_container)
         self.plugin_list_layout.setContentsMargins(0, 0, 0, 0)
@@ -153,7 +154,8 @@ class ToolPage(QWidget):
         empty_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_label = BodyLabel("选择一个插件以显示工具界面")
         empty_label.setStyleSheet("color: #888; font-size: 15px;")
-        empty_layout.addWidget(empty_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        empty_layout.addWidget(
+            empty_label, alignment=Qt.AlignmentFlag.AlignCenter)
         self.right_stack.addWidget(self._empty_page)
 
         # Widget 容器
@@ -253,7 +255,8 @@ class ToolPage(QWidget):
             if widget_class is not None:
                 widget_instance = widget_class()
                 widget_instance.set_http_client(self.http)
-                self._widget_qwidget = widget_instance.create_widget(self._widget_page)
+                self._widget_qwidget = widget_instance.create_widget(
+                    self._widget_page)
                 self._widget_instance = widget_instance
                 self._widget_page_layout.addWidget(self._widget_qwidget, 1)
                 self.right_stack.setCurrentWidget(self._widget_page)
