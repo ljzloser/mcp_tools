@@ -36,3 +36,7 @@ Desktop.ini
 # 网页静态文件及node_modules
 assets/web/*
 */node_modules/*
+
+# 文档构建产物
+*.docx
+*.pdf

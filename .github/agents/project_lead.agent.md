@@ -224,3 +224,16 @@ When completing a delegated task, summarize:
 - What was changed in each layer
 - Any API contract changes
 - How to test the changes
+
+## 开发经验（陷阱）
+
+### 创建新插件后必须执行
+
+1. **添加依赖到 `pyproject.toml`** — 新增 Python 依赖后必须添加到 dependencies 列表
+2. **运行 `uv sync`** — 安装新添加的依赖
+
+### 常见陷阱
+
+- **创建新插件后必须添加依赖到 pyproject.toml**，否则运行时找不到模块
+- 使用 `pypandoc` 需要系统安装 `pandoc` 和 `wkhtmltopdf`
+- Widget 必须继承 `QObject` 否则跨线程信号失效
