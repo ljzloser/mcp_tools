@@ -205,6 +205,25 @@ if ($proc.ExitCode -ne 0) {
 Write-OK "PyInstaller 构建完成"
 
 # ═══════════════════════════════════════════════════════════════
+# 5.5 复制 magika 数据文件到 _internal（PyInstaller 未自动收集）
+# ═══════════════════════════════════════════════════════════════
+Write-Step "复制 magika 数据文件"
+
+$magikaSrc = "$ScriptDir\.venv\Lib\site-packages\magika"
+$magikaDst = "$DistDir\$OutputName\_internal\magika"
+
+if (Test-Path $magikaSrc) {
+    if (Test-Path $magikaDst) {
+        Remove-Item $magikaDst -Recurse -Force
+    }
+    Copy-Item $magikaSrc -Destination $magikaDst -Recurse -Force
+    Write-OK "magika 数据文件已复制到 _internal\magika\"
+}
+else {
+    Write-Warn "未找到 magika 包目录: $magikaSrc"
+}
+
+# ═══════════════════════════════════════════════════════════════
 # 6. 验证输出
 # ═══════════════════════════════════════════════════════════════
 Write-Step "验证构建产物"
