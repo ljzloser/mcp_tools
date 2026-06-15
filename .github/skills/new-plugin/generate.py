@@ -111,7 +111,7 @@ WIDGET_CLASS = {widget_class}
     # Create backend.py
     backend_content = f'''"""{display_name} Plugin — Backend
 
-{docstring for the plugin}
+{{docstring for the plugin}}
 """
 
 from pydantic import BaseModel, Field
