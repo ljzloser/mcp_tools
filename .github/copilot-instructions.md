@@ -18,9 +18,9 @@
 
 ```bash
 uv sync                    # 安装依赖
-python server.py           # 启动服务 (stdio 模式)
-python server.py --sse     # 启动服务 (SSE 模式, 端口 9021)
-python client.py           # 启动管理 UI
+uv run server.py           # 启动服务 (stdio 模式)
+uv run server.py --sse     # 启动服务 (SSE 模式, 端口 9021)
+uv run client.py           # 启动管理 UI
 pytest                     # 运行测试
 cd web && npm run build    # 构建 Web 前端 → assets/web/
 ```

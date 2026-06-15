@@ -72,6 +72,6 @@ class MyPlugin(BasePlugin):
 
 ### 3. 验证
 
-- 运行 `python server.py --sse` 测试
+- 运行 `uv run server.py --sse` 测试
 - 检查 `/health` 端点返回 200
 - 验证插件加载正常

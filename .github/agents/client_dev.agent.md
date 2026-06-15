@@ -88,6 +88,6 @@ self.add_sub_interface(
 
 ### 3. 验证
 
-- 运行 `python client.py` 测试 UI 变更
+- 运行 `uv run client.py` 测试 UI 变更
 - 检查主题切换是否正常
 - 验证懒加载是否生效（页面首次显示时才创建）
