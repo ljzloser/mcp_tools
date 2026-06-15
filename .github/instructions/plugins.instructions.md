@@ -216,9 +216,8 @@ class MyConfig(ConfigModel):
   }
 }
 ```
-```
 
-参考现有��件：[plugins/calculator_tool/](plugins/calculator_tool/)、[plugins/json_tool/](plugins/json_tool/)
+参考现有插件：[plugins/calculator_tool/](../../plugins/calculator_tool/)、[plugins/json_tool/](../../plugins/json_tool/)
 
 ## 常见陷阱
 
