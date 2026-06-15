@@ -2,7 +2,47 @@
 name: server_dev
 description: 管理 MCP Tool Hub 后端开发 — FastMCP 服务器、FastAPI 管理 API、数据库、插件加载和工具注册表。
 argument-hint: 后端服务器相关任务（如 "添加新的 API 端点"、"修复插件加载问题"、"添加数据库迁移"）
-tools: [vscode, execute, read, agent, edit, search, web, 'bing-search/*', 'mcp-tool-hub/*', 'microsoft/markitdown/*', 'playwright/*', browser, 'pylance-mcp-server/*', ms-python.python/getPythonEnvironmentInfo, ms-python.python/getPythonExecutableCommand, ms-python.python/installPythonPackage, ms-python.python/configurePythonEnvironment, the0807.uv-toolkit/uv-init, the0807.uv-toolkit/uv-sync, the0807.uv-toolkit/uv-add, the0807.uv-toolkit/uv-add-dev, the0807.uv-toolkit/uv-upgrade, the0807.uv-toolkit/uv-clean, the0807.uv-toolkit/uv-lock, the0807.uv-toolkit/uv-venv, the0807.uv-toolkit/uv-run, the0807.uv-toolkit/uv-script-dep, the0807.uv-toolkit/uv-python-install, the0807.uv-toolkit/uv-python-pin, the0807.uv-toolkit/uv-tool-install, the0807.uv-toolkit/uvx-run, the0807.uv-toolkit/uv-activate-venv, the0807.uv-toolkit/uv-pep723, the0807.uv-toolkit/uv-install, the0807.uv-toolkit/uv-remove, the0807.uv-toolkit/uv-search, vicanent.gcmp/zhipuWebSearch, todo]
+tools:
+  [
+    vscode,
+    execute,
+    read,
+    agent,
+    edit,
+    search,
+    web,
+    "bing-search/*",
+    "mcp-tool-hub/*",
+    "microsoft/markitdown/*",
+    "playwright/*",
+    browser,
+    "pylance-mcp-server/*",
+    ms-python.python/getPythonEnvironmentInfo,
+    ms-python.python/getPythonExecutableCommand,
+    ms-python.python/installPythonPackage,
+    ms-python.python/configurePythonEnvironment,
+    the0807.uv-toolkit/uv-init,
+    the0807.uv-toolkit/uv-sync,
+    the0807.uv-toolkit/uv-add,
+    the0807.uv-toolkit/uv-add-dev,
+    the0807.uv-toolkit/uv-upgrade,
+    the0807.uv-toolkit/uv-clean,
+    the0807.uv-toolkit/uv-lock,
+    the0807.uv-toolkit/uv-venv,
+    the0807.uv-toolkit/uv-run,
+    the0807.uv-toolkit/uv-script-dep,
+    the0807.uv-toolkit/uv-python-install,
+    the0807.uv-toolkit/uv-python-pin,
+    the0807.uv-toolkit/uv-tool-install,
+    the0807.uv-toolkit/uvx-run,
+    the0807.uv-toolkit/uv-activate-venv,
+    the0807.uv-toolkit/uv-pep723,
+    the0807.uv-toolkit/uv-install,
+    the0807.uv-toolkit/uv-remove,
+    the0807.uv-toolkit/uv-search,
+    vicanent.gcmp/zhipuWebSearch,
+    todo,
+  ]
 ---
 
 # 后端开发 Agent
@@ -12,6 +52,7 @@ tools: [vscode, execute, read, agent, edit, search, web, 'bing-search/*', 'mcp-t
 ## 核心组件
 
 ### 服务器架构（`server/`）
+
 - **`app.py`** — `MCPServerApp` 主类，FastMCP 设置，SSE/stdio 传输
 - **`management_api.py`** — FastAPI HTTP 端点（端口 9020）、CORS、中间件
 - **`plugin_manager.py`** — 插件发现、加载、生命周期管理
@@ -20,6 +61,7 @@ tools: [vscode, execute, read, agent, edit, search, web, 'bing-search/*', 'mcp-t
 - **`database.py`** — `Database` 封装 aiosqlite 操作
 
 ### API 层（`api/`）
+
 - **`protocol.py`** — 前后端共享的 Pydantic 模型
 - **`routes.py`** — 路由常量（`/plugins`、`/logs`、`/health` 等）
 - **`tool.py`** — `ToolDef` 工具声明类
@@ -47,6 +89,7 @@ tools: [vscode, execute, read, agent, edit, search, web, 'bing-search/*', 'mcp-t
 遵循以下模式：
 
 **添加新的管理 API 端点：**
+
 ```python
 # server/management_api.py
 @router.get("/my-endpoint")
@@ -55,6 +98,7 @@ async def my_endpoint():
 ```
 
 **数据库操作：**
+
 ```python
 # 使用 server/database.py 中的 Database 封装
 await self.database.execute("INSERT INTO ...", ())
@@ -62,10 +106,11 @@ await self.database.fetchall("SELECT ...", ())
 ```
 
 **工具注册（在插件中）：**
+
 ```python
 class MyPlugin(BasePlugin):
     my_tool = ToolDef("my_tool", MyToolArgs, description="...")
-    
+
     async def handle_my_tool(self, args: MyToolArgs) -> MCPToolResult:
         return MCPToolResult(content=[{"type": "text", "text": "ok"}])
 ```

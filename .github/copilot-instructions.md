@@ -34,7 +34,7 @@ cd web && npm run build    # 构建 Web 前端 → assets/web/
 5. 可选 Widget：继承 `BasePluginWidget(QObject)`，实现 `get_name()` + `create_widget(parent)`
 6. **必须添加 README.md**：每个插件目录下必须包含 README.md，描述工具列表和使用示例
 
-参考模板：[plugins/_template/](../plugins/_template/)
+参考模板：[plugins/\_template/](../plugins/_template/)
 
 ## 关键约定
 
@@ -52,7 +52,7 @@ cd web && npm run build    # 构建 Web 前端 → assets/web/
 
 ## 陷阱
 
-- **FastMCP 动态注册不能用 `**kwargs`**：必须根据 `input_schema` 动态创建 Pydantic ArgModel（见 `server/app.py` 的 `_register_single_tool`）
+- **FastMCP 动态注册不能用 `**kwargs`**：必须根据 `input_schema`动态创建 Pydantic ArgModel（见`server/app.py`的`\_register_single_tool`）
 - **BasePluginWidget 必须继承 QObject**：否则跨线程信号无法排队到主线程，UI 更新被静默吞掉
 - **Widget 实例需显式持有引用**：防止 GC 回收导致信号连接失效
 - **MCP 开关 vs 插件加载**：关闭 MCP 只从 FastMCP 注销工具，插件仍加载，UI invoke 仍可用

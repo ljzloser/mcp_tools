@@ -2,7 +2,47 @@
 name: client_dev
 description: 管理 MCP Tool Hub 桌面客户端开发 — PySide6 + qfluentwidgets UI、AsyncHttpClient、页面组件和主题系统。
 argument-hint: 桌面客户端 UI 相关任务（如 "添加新的设置页面"、"修复主题切换"、"添加插件详情视图"）
-tools: [vscode, execute, read, agent, edit, search, web, 'bing-search/*', 'mcp-tool-hub/*', 'microsoft/markitdown/*', 'playwright/*', browser, 'pylance-mcp-server/*', ms-python.python/getPythonEnvironmentInfo, ms-python.python/getPythonExecutableCommand, ms-python.python/installPythonPackage, ms-python.python/configurePythonEnvironment, the0807.uv-toolkit/uv-init, the0807.uv-toolkit/uv-sync, the0807.uv-toolkit/uv-add, the0807.uv-toolkit/uv-add-dev, the0807.uv-toolkit/uv-upgrade, the0807.uv-toolkit/uv-clean, the0807.uv-toolkit/uv-lock, the0807.uv-toolkit/uv-venv, the0807.uv-toolkit/uv-run, the0807.uv-toolkit/uv-script-dep, the0807.uv-toolkit/uv-python-install, the0807.uv-toolkit/uv-python-pin, the0807.uv-toolkit/uv-tool-install, the0807.uv-toolkit/uvx-run, the0807.uv-toolkit/uv-activate-venv, the0807.uv-toolkit/uv-pep723, the0807.uv-toolkit/uv-install, the0807.uv-toolkit/uv-remove, the0807.uv-toolkit/uv-search, vicanent.gcmp/zhipuWebSearch, todo]
+tools:
+  [
+    vscode,
+    execute,
+    read,
+    agent,
+    edit,
+    search,
+    web,
+    "bing-search/*",
+    "mcp-tool-hub/*",
+    "microsoft/markitdown/*",
+    "playwright/*",
+    browser,
+    "pylance-mcp-server/*",
+    ms-python.python/getPythonEnvironmentInfo,
+    ms-python.python/getPythonExecutableCommand,
+    ms-python.python/installPythonPackage,
+    ms-python.python/configurePythonEnvironment,
+    the0807.uv-toolkit/uv-init,
+    the0807.uv-toolkit/uv-sync,
+    the0807.uv-toolkit/uv-add,
+    the0807.uv-toolkit/uv-add-dev,
+    the0807.uv-toolkit/uv-upgrade,
+    the0807.uv-toolkit/uv-clean,
+    the0807.uv-toolkit/uv-lock,
+    the0807.uv-toolkit/uv-venv,
+    the0807.uv-toolkit/uv-run,
+    the0807.uv-toolkit/uv-script-dep,
+    the0807.uv-toolkit/uv-python-install,
+    the0807.uv-toolkit/uv-python-pin,
+    the0807.uv-toolkit/uv-tool-install,
+    the0807.uv-toolkit/uvx-run,
+    the0807.uv-toolkit/uv-activate-venv,
+    the0807.uv-toolkit/uv-pep723,
+    the0807.uv-toolkit/uv-install,
+    the0807.uv-toolkit/uv-remove,
+    the0807.uv-toolkit/uv-search,
+    vicanent.gcmp/zhipuWebSearch,
+    todo,
+  ]
 ---
 
 # 桌面客户端开发 Agent
@@ -12,6 +52,7 @@ tools: [vscode, execute, read, agent, edit, search, web, 'bing-search/*', 'mcp-t
 ## 核心组件
 
 ### 客户端架构（`client/`）
+
 - **`main_window.py`** — `MainWindow(MSFluentWindow)`，通过 `LazyPage` 懒加载页面
 - **`http_client.py`** — `AsyncHttpClient(QObject)` 用于异步 HTTP 请求后端，Qt 信号返回响应
 - **`theme.py`** — `apply_theme()` 用于明暗模式切换
@@ -38,14 +79,14 @@ class MyPage(QWidget):
         self._http = http
         self._http.request_finished.connect(self._on_response)
         self._http.request_failed.connect(self._on_error)
-    
+
     def load_data(self):
         self._http.get("/plugins")
-    
+
     def _on_response(self, request_id: int, status: int, data: object):
         if status == 200:
             self._handle_data(data)
-    
+
     def _on_error(self, request_id: int, error: str):
         InfoBar.error(...)
 ```
@@ -66,6 +107,7 @@ apply_theme("dark")  # 或 "light"
 ### 2. 实现变更
 
 **添加新页面：**
+
 ```python
 # client/pages/my_page.py
 class MyPage(QWidget):
@@ -76,6 +118,7 @@ class MyPage(QWidget):
 ```
 
 **在 MainWindow 中注册：**
+
 ```python
 # 在 MainWindow.__init__ 中：
 self.add_sub_interface(
